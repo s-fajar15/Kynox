@@ -40,7 +40,7 @@ import com.kynox.gaming.ui.tools.DiagnosticsScreen
 @Composable
 fun KynoxNavHost(navController: NavHostController, container: AppContainer) {
     NavHost(navController = navController, startDestination = Dest.Home.route) {
-        composable(Dest.Home.route) { DashboardScreen(container) }
+        composable(Dest.Home.route) { DashboardScreen(container, onOpenStatus = { navController.navigate(Dest.Diagnostics.route) }) }
         composable(Dest.Gaming.route) {
             GamingScreen(
                 container,
@@ -61,8 +61,25 @@ fun KynoxNavHost(navController: NavHostController, container: AppContainer) {
                 onNavigateAbout = { navController.navigate(Dest.About.route) },
                 onNavigateGaming = { navController.navigate(Dest.Gaming.route) },
                 onNavigateGameLibrary = { navController.navigate(Dest.GameLibrary.route) },
-                onNavigateControl = { navController.navigate(Dest.Control.route) }
+                onNavigateControl = { navController.navigate(Dest.Control.route) },
+                onNavigateQuickPanel = { navController.navigate(Dest.QuickPanel.route) },
+                onNavigateBackup = { navController.navigate(Dest.Backup.route) }
             )
+        }
+
+        composable(Dest.Backup.route) { com.kynox.gaming.ui.backup.BackupScreen(container, onBack = { navController.popBackStack() }) }
+        composable(Dest.QuickPanel.route) {
+            com.kynox.gaming.ui.quickpanel.QuickPanelScreen(
+                container,
+                onBack = { navController.popBackStack() },
+                onOpenProfiles = { navController.navigate(Dest.Profiles.route) },
+                onOpenRefreshRate = { navController.navigate(Dest.RefreshRate.route) },
+                onOpenThermal = { navController.navigate(Dest.Thermal.route) }
+            )
+        }
+
+        composable(Dest.Cleaner.route) {
+            com.kynox.gaming.ui.cleaner.CleanerScreen(container, onBack = { navController.popBackStack() })
         }
 
         composable(Dest.DeviceInfo.route) { DeviceInfoScreen(container, onBack = { navController.popBackStack() }) }

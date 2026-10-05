@@ -1,5 +1,9 @@
 package com.kynox.gaming.ui.dashboard
 
+import com.kynox.gaming.ui.components.Sparkline
+import com.kynox.gaming.ui.components.IconTile
+import androidx.compose.foundation.clickable
+import com.kynox.gaming.ui.components.kynoxCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +15,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import com.kynox.gaming.ui.theme.KynoxShapes
+import com.kynox.gaming.ui.components.KynoxGauge
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,13 +54,14 @@ import com.kynox.gaming.ui.components.StatusPill
 import com.kynox.gaming.ui.theme.KynoxAccentDark
 import com.kynox.gaming.ui.theme.KynoxIcons
 import com.kynox.gaming.ui.theme.KynoxStatusBands
+import com.kynox.gaming.ui.theme.StatusDanger
 import com.kynox.gaming.ui.theme.StatusGood
 import com.kynox.gaming.ui.theme.StatusWarning
 import com.kynox.gaming.ui.theme.kynoxColors
 import androidx.compose.ui.res.stringResource
 
 @Composable
-fun DashboardScreen(container: AppContainer) {
+fun DashboardScreen(container: AppContainer, onOpenStatus: () -> Unit = {}) {
     val vm: DashboardViewModel = viewModel(factory = GenericViewModelFactory {
         DashboardViewModel(
             container.batteryRepository,
@@ -70,11 +78,11 @@ fun DashboardScreen(container: AppContainer) {
     Scaffold(topBar = {
         KynoxTopBar(
             title = "Kynox",
-            subtitle = "Pantau perangkat, di tanganmu.",
-            leading = { KMark(markSize = 25.dp) },
+            subtitle = "Performa perangkat, di tanganmu.",
+            leading = { KMark(markSize = 30.dp) },
             actions = {
                 val root = state.rootStatus?.isAvailable == true
-                StatusPill(if (root) "Akses root" else "Mode terbatas", if (root) StatusGood else StatusWarning)
+                StatusPill(if (root) "Root" else "Terbatas", if (root) StatusGood else StatusWarning)
             }
         )
     }) { padding ->
@@ -85,99 +93,200 @@ fun DashboardScreen(container: AppContainer) {
 
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 104.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 104.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item { SystemHero(state) }
-            item { MetricGrid(state) }
-            item { HealthSummary(state) }
+            item { ThermalHero(state) }
+            item { LoadCard(state) }
+            item { BentoRow(state) }
+            item { StatusCard(state, onOpenStatus) }
         }
     }
 }
 
 @Composable
-private fun SystemHero(state: DashboardUiState) {
+private fun ThermalHero(state: DashboardUiState) {
     val temp = state.cpuTempCelsius ?: state.gpuTempCelsius
-    val tempColor = KynoxStatusBands.tempColor(temp, KynoxAccentDark)
-    val healthy = temp == null || temp < KynoxStatusBands.TEMP_WARN
-    Box(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF0D2629), MaterialTheme.colorScheme.surface)))
-            .border(1.dp, KynoxAccentDark.copy(alpha = 0.24f), RoundedCornerShape(22.dp))
-            .padding(17.dp)
-    ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Suhu CPU", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(temp?.let { "%.0f".format(it) } ?: "--", style = MaterialTheme.typography.displaySmall, color = tempColor, fontWeight = FontWeight.SemiBold)
-                        Text("°C", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 5.dp, start = 3.dp))
-                    }
-                    Text(if (healthy) "Normal · pemantauan aktif" else "Beban tinggi · perhatikan suhu", style = MaterialTheme.typography.labelSmall, color = if (healthy) StatusGood else StatusWarning)
-                }
-                Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(KynoxAccentDark.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-                    Icon(KynoxIcons.Cpu, null, tint = KynoxAccentDark, modifier = Modifier.size(24.dp))
-                }
-            }
-            Spacer(Modifier.height(13.dp))
-            RealtimeLineChart(values = state.cpuUsageHistory, modifier = Modifier.fillMaxWidth().height(42.dp))
-        }
+    val tempLabel = when {
+        temp == null -> "Tidak tersedia"
+        temp >= KynoxStatusBands.TEMP_CRIT -> "Panas"
+        temp >= KynoxStatusBands.TEMP_WARN -> "Hangat"
+        else -> "Normal"
     }
-}
-
-@Composable
-private fun MetricGrid(state: DashboardUiState) {
+    val tempColor = when {
+        temp == null -> MaterialTheme.colorScheme.onSurfaceVariant
+        temp >= KynoxStatusBands.TEMP_CRIT -> StatusDanger
+        temp >= KynoxStatusBands.TEMP_WARN -> StatusWarning
+        else -> StatusGood
+    }
+    // Skala busur: 25\u00B0C (dingin) sampai 80\u00B0C (sangat panas).
+    val progress = temp?.let { ((it - 25f) / 55f).coerceIn(0f, 1f) } ?: 0f
     val cpu = state.cpu?.overallUsagePercent
     val gpu = state.gpu?.utilizationPercent
-    val ram = state.ram?.usedPercent
-    val battery = state.battery?.capacityPercent
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricTile("CPU", cpu?.let { "%.0f%%".format(it) } ?: "--", KynoxIcons.Cpu, Modifier.weight(1f))
-            MetricTile("GPU", gpu?.let { "%.0f%%".format(it) } ?: "--", KynoxIcons.Gpu, Modifier.weight(1f))
+    val ram = state.ram?.let { if (it.totalBytes > 0) it.usedBytes * 100f / it.totalBytes else null }
+
+    Column(
+        Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(horizontal = 20.dp, vertical = 22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        KynoxGauge(progress = progress, modifier = Modifier.size(216.dp), strokeWidth = 18.dp, color = tempColor) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Suhu CPU", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    temp?.let { "%.0f\u00B0".format(it) } ?: "--",
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
+                StatusPill(tempLabel, tempColor)
+            }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricTile("RAM", state.ram?.let { "%.1f GB".format(it.usedBytes / 1073741824f) } ?: "--", KynoxIcons.Ram, Modifier.weight(1f))
-            MetricTile("Baterai", battery?.let { "$it%" } ?: "--", KynoxIcons.Battery, Modifier.weight(1f))
+        Spacer(Modifier.height(18.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            LoadStat("CPU", cpu, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+            LoadStat("GPU", gpu, MaterialTheme.kynoxColors.seriesSecondary, Modifier.weight(1f))
+            LoadStat("RAM", ram, StatusGood, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun MetricTile(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
+private fun LoadStat(label: String, percent: Float?, color: androidx.compose.ui.graphics.Color, modifier: Modifier) {
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(
+                percent?.let { "%.0f%%".format(it) } ?: "--",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = KynoxStatusBands.loadColor(percent, MaterialTheme.colorScheme.onSurface)
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        KLinearProgress((percent ?: 0f) / 100f, fillColor = KynoxStatusBands.loadColor(percent, color))
+    }
+}
+
+@Composable
+private fun LoadCard(state: DashboardUiState) {
+    val cpu = state.cpu?.overallUsagePercent
+    SectionCard(
+        title = "Beban CPU",
+        trailing = {
+            Text(
+                cpu?.let { "%.0f%%".format(it) } ?: "--",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    ) {
+        RealtimeLineChart(values = state.cpuUsageHistory, height = 84.dp)
+    }
+}
+
+@Composable
+private fun BentoRow(state: DashboardUiState) {
+    val battery = state.battery
+    val ram = state.ram
+    val gb = 1073741824f
+    val ramPercent = ram?.let { if (it.totalBytes > 0) it.usedBytes * 100f / it.totalBytes else null }
+    val charging = battery?.let { chargingLabel(it.chargingStatus) } == "Mengisi"
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        BentoTile(
+            label = "Baterai",
+            value = battery?.capacityPercent?.toString() ?: "--",
+            unit = "%",
+            sub = listOfNotNull(
+                battery?.let { chargingLabel(it.chargingStatus) },
+                battery?.powerWatts?.let { "%.1f W".format(it) }
+            ).joinToString(" \u00B7 ").ifEmpty { null },
+            progress = (battery?.capacityPercent ?: 0) / 100f,
+            progressColor = if (charging) StatusGood else MaterialTheme.colorScheme.primary,
+            icon = KynoxIcons.Battery,
+            modifier = Modifier.weight(1f)
+        )
+        BentoTile(
+            label = "RAM",
+            value = ram?.let { "%.1f".format(it.usedBytes / gb) } ?: "--",
+            unit = " GB",
+            sub = ram?.let { "dari %.0f GB".format(it.totalBytes / gb) },
+            progress = (ramPercent ?: 0f) / 100f,
+            progressColor = KynoxStatusBands.loadColor(ramPercent, MaterialTheme.kynoxColors.seriesSecondary),
+            icon = KynoxIcons.Ram,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+private fun chargingLabel(status: String): String? = when {
+    // "Tidak mengisi" harus dicek sebelum "mengisi", karena yang pertama memuat yang kedua.
+    status.contains("Tidak mengisi", ignoreCase = true) || status.contains("Not charging", ignoreCase = true) -> "Tidak mengisi"
+    status.contains("Mengisi", ignoreCase = true) || status.contains("Charging", ignoreCase = true) -> "Mengisi"
+    status.contains("Penuh", ignoreCase = true) || status.contains("Full", ignoreCase = true) -> "Penuh"
+    status.contains("terpakai", ignoreCase = true) || status.contains("Discharging", ignoreCase = true) -> "Tidak mengisi"
+    else -> null
+}
+
+@Composable
+private fun BentoTile(
+    label: String,
+    value: String,
+    unit: String,
+    sub: String?,
+    progress: Float,
+    progressColor: androidx.compose.ui.graphics.Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier
+) {
+    Column(modifier.heightIn(min = 148.dp).kynoxCard(KynoxShapes.section).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(icon, size = 32.dp)
+            Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 10.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(unit, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
+        }
+        Text(
+            sub ?: " ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(10.dp))
+        KLinearProgress(progress, fillColor = progressColor)
+    }
+}
+
+@Composable
+private fun StatusCard(state: DashboardUiState, onClick: () -> Unit) {
+    val root = state.rootStatus?.isAvailable == true
+    val allGood = root && state.thermalEngineActive && state.gpu?.supported == true
+    val color = if (allGood) StatusGood else StatusWarning
     Row(
-        modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(19.dp)).padding(15.dp),
+        Modifier.fillMaxWidth().kynoxCard(KynoxShapes.pill).clickable(onClick = onClick).padding(horizontal = 22.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(34.dp).clip(CircleShape).background(KynoxAccentDark.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = KynoxAccentDark, modifier = Modifier.size(18.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+                Text("Status Sistem", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+                Text(
+                    if (allGood) "Semua berjalan normal" else "Sebagian fitur terbatas",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = color,
+                    modifier = Modifier.padding(start = 10.dp)
+                )
+            }
         }
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-private fun HealthSummary(state: DashboardUiState) {
-    val root = state.rootStatus?.isAvailable == true
-    SectionCard("Status sistem", trailing = { Text(if (root) "Siap" else "Terbatas", color = if (root) StatusGood else StatusWarning, style = MaterialTheme.typography.labelMedium) }) {
-        StatusLine("Thermal engine", if (state.thermalEngineActive) "Aktif" else "Nonaktif", state.thermalEngineActive)
-        StatusLine("GPU telemetry", if (state.gpu?.supported == true) "Tersedia" else "Terbatas", state.gpu?.supported == true)
-        StatusLine("Root access", if (root) "Tersedia" else "Tidak tersedia", root)
-    }
-}
-
-@Composable
-private fun StatusLine(label: String, value: String, good: Boolean) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(if (good) StatusGood else StatusWarning))
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 10.dp))
-        Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(KynoxIcons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

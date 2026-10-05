@@ -24,6 +24,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    override fun onStart() {
+        super.onStart()
+        com.kynox.gaming.core.utils.AppVisibility.set(true)
+    }
+
+    override fun onStop() {
+        com.kynox.gaming.core.utils.AppVisibility.set(false)
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

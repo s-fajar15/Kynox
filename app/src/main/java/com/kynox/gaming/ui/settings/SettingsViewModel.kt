@@ -30,6 +30,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         viewModelScope.launch { repository.setOverlayStyle(scalePercent, opacityPercent) }
     }
     fun setMonitorEnabled(enabled: Boolean) { viewModelScope.launch { repository.setMonitorEnabled(enabled) } }
+    fun setNotifications(thermal: Boolean, thresholdC: Int, cooldownMin: Int, profileApplied: Boolean) {
+        viewModelScope.launch { repository.setNotifications(thermal, thresholdC, cooldownMin, profileApplied) }
+    }
+    fun setHistory(enabled: Boolean, intervalSec: Int, retentionHours: Int) {
+        viewModelScope.launch { repository.setHistory(enabled, intervalSec, retentionHours) }
+    }
     fun exitSafeMode() { viewModelScope.launch { repository.exitSafeMode() } }
     fun resetAll() { viewModelScope.launch { repository.resetAll() } }
 }

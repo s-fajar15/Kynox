@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class BatteryUiState(
     val info: BatteryInfo? = null,
@@ -44,15 +45,29 @@ class BatteryViewModel(
                 chargeLimitEnabled = savedSettings.chargeLimitEnabled,
                 chargeLimitPercent = savedSettings.chargeLimitPercent
             )
+            // Info baterai (tanpa root) diperbarui sendiri supaya layar tidak menunggu pembacaan root yang lambat.
+            launch {
+                while (true) {
+                    com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
+                    try {
+                        _uiState.value = _uiState.value.copy(info = repository.readInfo())
+                    } catch (_: Throwable) { }
+                    delay(2000)
+                }
+            }
             while (true) {
-                val fc = repository.fastChargingState()
-                _uiState.value = _uiState.value.copy(
-                    info = repository.readInfo(),
-                    charger = repository.readChargerInfo(),
-                    fastCharging = fc,
-                    targetMa = if (fc.active) fc.targetCurrentMa else _uiState.value.targetMa,
-                    chargeLimit = repository.chargeLimitState()
-                )
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
+                try {
+                    val charger = withTimeoutOrNull(6000) { repository.readChargerInfo() }
+                    val fc = withTimeoutOrNull(6000) { repository.fastChargingState() }
+                    val limit = withTimeoutOrNull(6000) { repository.chargeLimitState() }
+                    _uiState.value = _uiState.value.copy(
+                        charger = charger ?: _uiState.value.charger,
+                        fastCharging = fc ?: _uiState.value.fastCharging,
+                        targetMa = if (fc?.active == true) fc.targetCurrentMa else _uiState.value.targetMa,
+                        chargeLimit = limit ?: _uiState.value.chargeLimit
+                    )
+                } catch (_: Throwable) { }
                 delay(2000)
             }
         }

@@ -1,5 +1,6 @@
 package com.kynox.gaming.ui.components
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -91,13 +92,12 @@ fun ReportChart(
                 val chartHeight = bottom - top
                 val width = size.width
 
-                val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
                 for (i in 0 until GRID_LINES) {
                     val y = top + chartHeight * i / (GRID_LINES - 1)
                     drawLine(
-                        gridColor, Offset(0f, y), Offset(width, y),
-                        strokeWidth = 1.dp.toPx(),
-                        pathEffect = if (i == GRID_LINES - 1) null else dash
+                        gridColor.copy(alpha = if (i == GRID_LINES - 1) 0.9f else 0.35f),
+                        Offset(0f, y), Offset(width, y),
+                        strokeWidth = 1.dp.toPx()
                     )
                 }
                 if (points.size < 2) return@Canvas
@@ -106,22 +106,19 @@ fun ReportChart(
                 fun yOf(point: ChartPoint): Float =
                     bottom - ((point.y - yMin) / span).coerceIn(0f, 1f) * chartHeight
 
+                val curve = points.map { Offset(xOf(it), yOf(it)) }
                 if (fill) {
-                    val fillPath = Path()
-                    fillPath.moveTo(xOf(points.first()), bottom)
-                    points.forEach { fillPath.lineTo(xOf(it), yOf(it)) }
-                    fillPath.lineTo(xOf(points.last()), bottom)
-                    fillPath.close()
-                    drawPath(fillPath, brush = SolidColor(lineColor.copy(alpha = 0.12f)), style = Fill)
+                    // Isian satu warna datar (tanpa gradien) agar area grafik tidak terasa kosong.
+                    val areaPath = smoothLinePath(curve)
+                    areaPath.lineTo(curve.last().x, bottom)
+                    areaPath.lineTo(curve.first().x, bottom)
+                    areaPath.close()
+                    drawPath(areaPath, color = lineColor.copy(alpha = 0.14f), style = Fill)
                 }
 
                 val strokeWidth = 2.dp.toPx()
                 if (segmentColor == null) {
-                    val linePath = Path()
-                    points.forEachIndexed { index, point ->
-                        if (index == 0) linePath.moveTo(xOf(point), yOf(point)) else linePath.lineTo(xOf(point), yOf(point))
-                    }
-                    drawPath(linePath, color = lineColor, style = Stroke(width = strokeWidth))
+                    drawPath(smoothLinePath(curve), color = lineColor, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
                 } else {
                     for (i in 1 until points.size) {
                         val from = points[i - 1]

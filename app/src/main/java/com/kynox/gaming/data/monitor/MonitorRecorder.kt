@@ -42,6 +42,9 @@ class MonitorRecorder(
     private val deviceInfoRepository: DeviceInfoRepository
 ) {
     private val historyFile = File(context.filesDir, HISTORY_FILE)
+
+    /** Riwayat jangka panjang di penyimpanan lokal (selang dan masa simpan diatur di Pengaturan). */
+    val history = MonitorHistoryStore(context)
     private val buffer = ArrayList<MonitorSample>()
     private var lastPersistMs = 0L
     private var historyLoaded = false
@@ -123,6 +126,12 @@ class MonitorRecorder(
             lastPersistMs = now
             persist(snapshot)
         }
+    }
+
+    /** Menyimpan sampel terbaru ke riwayat jangka panjang bila selang yang dipilih sudah lewat. */
+    suspend fun recordHistory(intervalSec: Int, retentionHours: Int) = withContext(Dispatchers.IO) {
+        val latest = synchronized(buffer) { buffer.lastOrNull() } ?: return@withContext
+        history.append(latest, intervalSec * 1000L, retentionHours * 3_600_000L)
     }
 
     private fun persist(snapshot: List<MonitorSample>) {

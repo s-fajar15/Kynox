@@ -1,5 +1,24 @@
 package com.kynox.gaming.ui.gaming
 
+import com.kynox.gaming.ui.components.kynoxCard
+import com.kynox.gaming.ui.components.KynoxListRow
+import com.kynox.gaming.ui.components.ListCard
+import com.kynox.gaming.ui.components.IconTile
+import com.kynox.gaming.domain.model.LiveMetrics
+import com.kynox.gaming.core.utils.gpuFreqMhz
+import kotlinx.coroutines.delay
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -57,6 +76,7 @@ import com.kynox.gaming.ui.theme.KynoxAccentDark
 import com.kynox.gaming.ui.theme.KynoxIcons
 import com.kynox.gaming.ui.theme.StatusDanger
 import com.kynox.gaming.ui.theme.StatusGood
+import com.kynox.gaming.ui.theme.KynoxShapes
 
 @Composable
 fun SessionScreen(container: AppContainer, onBack: () -> Unit, onOpenReport: () -> Unit) {
@@ -79,79 +99,74 @@ fun SessionScreen(container: AppContainer, onBack: () -> Unit, onOpenReport: () 
         }
     }
 
+    val nowMs by produceState(initialValue = System.currentTimeMillis(), key1 = state.isRecording) {
+        while (state.isRecording) {
+            value = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+
     Scaffold(topBar = { DetailTopBar(title = "Rekam Sesi", onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 32.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
-                SessionHero(
-                    recording = state.isRecording,
-                    game = state.selected,
-                    onStop = { stopSession(context) }
-                )
-            }
-            if (!state.overlayGranted) {
+            if (state.isRecording) {
                 item {
-                    InfoCard(
-                        icon = KynoxIcons.Apps,
-                        title = "Overlay diperlukan",
-                        description = "Kynox memakai overlay kecil untuk menampilkan FPS saat sesi berjalan. Data tetap direkam di latar belakang.",
-                        action = { openOverlaySettings(context) }
+                    RecordingCard(
+                        game = state.selected,
+                        elapsedMs = if (state.startedAtMs > 0L) (nowMs - state.startedAtMs).coerceAtLeast(0L) else 0L
                     )
                 }
-            }
-            if (!state.isRecording) {
+                item { LiveGrid(state.live) }
                 item {
-                    SectionTitle("Sesi baru", "Pilih aplikasi yang ingin dipantau")
-                }
-                item {
-                    Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f), RoundedCornerShape(22.dp))
-                            .padding(15.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        if (state.managedGames.isEmpty() && !state.loading) {
-                            EmptyGameState()
-                        } else {
-                            DropdownSelector(
-                                label = "Aplikasi",
-                                selected = state.selected?.label ?: "Pilih aplikasi",
-                                options = state.managedGames.map { it.label },
-                                enabled = state.managedGames.isNotEmpty(),
-                                onSelected = { label -> state.managedGames.firstOrNull { it.label == label }?.let(viewModel::select) }
-                            )
-                            SessionMetricGrid()
-                            KButton(onClick = { beginRecording() }, enabled = state.selected != null, modifier = Modifier.fillMaxWidth()) {
-                                Icon(KynoxIcons.Monitor, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text("Mulai merekam")
-                            }
-                        }
-                    }
+                    KButton(
+                        onClick = { stopSession(context) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = StatusDanger)
+                    ) { Text("Hentikan rekaman") }
                 }
             } else {
-                item { LiveMetricCard() }
+                item { ReadyCard() }
+                item {
+                    GamePickerCard(
+                        games = state.managedGames,
+                        selected = state.selected,
+                        loading = state.loading,
+                        onSelect = viewModel::select
+                    )
+                }
+                item { RecordedMetrics() }
+                if (!state.overlayGranted) {
+                    item {
+                        InfoCard(
+                            icon = KynoxIcons.Apps,
+                            title = "Overlay diperlukan",
+                            description = "Kynox memakai overlay kecil untuk menampilkan FPS saat sesi berjalan. Data tetap direkam di latar belakang.",
+                            action = { openOverlaySettings(context) }
+                        )
+                    }
+                }
+                item {
+                    KButton(
+                        onClick = { beginRecording() },
+                        enabled = state.selected != null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(StatusDanger))
+                        Spacer(Modifier.size(10.dp))
+                        Text("Mulai merekam")
+                    }
+                }
             }
             if (state.hasReports) {
                 item {
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f))
-                            .clickable(onClick = onOpenReport).padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                            Icon(KynoxIcons.Logs, null, tint = KynoxAccentDark, modifier = Modifier.size(20.dp))
-                        }
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text("Riwayat sesi", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Text("Lihat, hapus, dan simpan laporan lengkap", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(KynoxIcons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ListCard {
+                        KynoxListRow(
+                            "Riwayat sesi", "Lihat, hapus, dan simpan laporan lengkap", KynoxIcons.Logs,
+                            onClick = onOpenReport
+                        )
                     }
                 }
             }
@@ -160,49 +175,194 @@ fun SessionScreen(container: AppContainer, onBack: () -> Unit, onOpenReport: () 
 }
 
 @Composable
-private fun SessionHero(recording: Boolean, game: InstalledGame?, onStop: () -> Unit) {
-    val shape = RoundedCornerShape(26.dp)
+private fun ReadyCard() {
+    Row(
+        Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconTile(KynoxIcons.Monitor, size = 56.dp)
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text("Perekam performa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Rekam FPS, CPU, GPU, suhu, frekuensi, dan daya selama kamu bermain.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        StatusPill("Siap", MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun GamePickerCard(
+    games: List<InstalledGame>,
+    selected: InstalledGame?,
+    loading: Boolean,
+    onSelect: (InstalledGame) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Aplikasi yang dipantau",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        if (games.isEmpty() && !loading) {
+            Column(Modifier.fillMaxWidth().kynoxCard(KynoxShapes.section).padding(18.dp)) { EmptyGameState() }
+            return@Column
+        }
+        var open by remember { mutableStateOf(false) }
+        Box {
+            Row(
+                Modifier.fillMaxWidth().kynoxCard(KynoxShapes.section).clickable(enabled = games.isNotEmpty()) { open = true }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (selected != null) {
+                    AppIconImage(selected.packageName, 44.dp)
+                } else {
+                    IconTile(KynoxIcons.Apps, size = 44.dp)
+                }
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(selected?.label ?: "Pilih aplikasi", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(
+                        selected?.packageName ?: "Ketuk untuk memilih",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                Icon(KynoxIcons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                games.forEach { game ->
+                    DropdownMenuItem(
+                        text = { Text(game.label) },
+                        leadingIcon = { AppIconImage(game.packageName, 28.dp) },
+                        onClick = { open = false; onSelect(game) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordedMetrics() {
+    val items = listOf(
+        "FPS" to KynoxIcons.Monitor,
+        "CPU" to KynoxIcons.Cpu,
+        "GPU" to KynoxIcons.Gpu,
+        "Suhu" to KynoxIcons.Thermal,
+        "Daya" to KynoxIcons.Battery
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Yang direkam",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.chunked(2).forEach { rowItems ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    rowItems.forEach { (label, icon) ->
+                        Row(
+                            Modifier.weight(1f).kynoxCard(KynoxShapes.section).padding(horizontal = 12.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconTile(icon, size = 32.dp, circle = true)
+                            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 10.dp))
+                        }
+                    }
+                    if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordingCard(game: InstalledGame?, elapsedMs: Long) {
+    val pulse = rememberInfiniteTransition(label = "rec")
+    val alpha by pulse.animateFloat(
+        initialValue = 1f, targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "recAlpha"
+    )
     Column(
-        Modifier.fillMaxWidth().clip(shape)
-            .background(if (recording) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .7f), shape)
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(KynoxAccentDark.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-                Icon(KynoxIcons.Monitor, null, tint = KynoxAccentDark, modifier = Modifier.size(24.dp))
-            }
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(if (recording) "Sesi sedang direkam" else "Perekam performa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    if (recording) "Kynox sedang mengumpulkan metrik secara real-time" else "FPS, CPU, GPU, suhu, frekuensi, dan daya",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            StatusPill(if (recording) "Aktif" else "Siap", if (recording) StatusGood else MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.size(10.dp).alpha(alpha).clip(CircleShape).background(StatusDanger))
+            Text(
+                "Sedang merekam",
+                style = MaterialTheme.typography.titleSmall,
+                color = StatusDanger,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            formatClock(elapsedMs),
+            style = MaterialTheme.typography.displayLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
         if (game != null) {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = .7f)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.height(14.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 AppIconImage(game.packageName, 40.dp)
                 Column(Modifier.weight(1f).padding(start = 11.dp)) {
-                    Text(game.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    Text(game.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     Text(game.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
             }
         }
-        if (recording) {
-            KButton(onClick = onStop, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = StatusDanger)) {
-                Text("Hentikan rekaman")
+    }
+}
+
+@Composable
+private fun LiveGrid(live: LiveMetrics) {
+    val items = listOf(
+        Triple("FPS", live.fps?.let { "%.0f".format(it) } ?: "--", KynoxIcons.Monitor),
+        Triple("Suhu CPU", live.cpuTempCelsius?.let { "%.0f°C".format(it) } ?: "--", KynoxIcons.Thermal),
+        Triple("GPU", live.gpuFreqRaw?.let { "${gpuFreqMhz(it)} MHz" } ?: "--", KynoxIcons.Gpu),
+        Triple("Daya", live.powerWatts?.let { "%.1f W".format(it) } ?: "--", KynoxIcons.Battery)
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items.chunked(2).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                rowItems.forEach { (label, value, icon) ->
+                    Row(
+                        Modifier.weight(1f).kynoxCard(KynoxShapes.section).padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconTile(icon, size = 38.dp)
+                        Column(Modifier.padding(start = 11.dp)) {
+                            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+private fun formatClock(ms: Long): String {
+    val total = ms / 1000
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val sec = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%02d:%02d".format(m, sec)
+}
+
 @Composable
 private fun InfoCard(icon: ImageVector, title: String, description: String, action: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f)).padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+    Column(Modifier.fillMaxWidth().kynoxCard(KynoxShapes.section).padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = KynoxAccentDark, modifier = Modifier.size(20.dp))
             Spacer(Modifier.size(9.dp))
@@ -210,46 +370,6 @@ private fun InfoCard(icon: ImageVector, title: String, description: String, acti
         }
         Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         KOutlinedButton(onClick = action) { Text("Buka izin overlay") }
-    }
-}
-
-@Composable
-private fun SectionTitle(title: String, subtitle: String) {
-    Column {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun SessionMetricGrid() {
-    val items = listOf("FPS", "CPU", "GPU", "Suhu", "Daya")
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.chunked(2).forEach { rowItems ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rowItems.forEach { label ->
-                    MetricPlaceholder(label, Modifier.weight(1f))
-                }
-                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetricPlaceholder(label: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(15.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f)).padding(12.dp)) {
-        Text("—", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun LiveMetricCard() {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .6f), RoundedCornerShape(20.dp)).padding(15.dp)) {
-        Text("Pemantauan langsung", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(10.dp))
-        Text("Nilai real-time tersedia melalui overlay Kynox saat permainan berjalan.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -30,38 +30,29 @@ fun RealtimeLineChart(
         val w = size.width
         val h = size.height
 
-        val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
-        drawLine(gridColor, Offset(0f, h), Offset(w, h), strokeWidth = 1.dp.toPx())
-        drawLine(gridColor, Offset(0f, h / 2f), Offset(w, h / 2f), strokeWidth = 1.dp.toPx(), pathEffect = dash)
+        drawLine(gridColor.copy(alpha = 0.9f), Offset(0f, h), Offset(w, h), strokeWidth = 1.dp.toPx())
 
         if (values.size < 2) return@Canvas
 
         val maxV = values.max().let { if (it <= 0f) 1f else it }
-        val minV = 0f
-        val range = (maxV - minV).let { if (it == 0f) 1f else it }
+        val range = maxV.let { if (it == 0f) 1f else it }
         val stepX = w / (values.size - 1).toFloat()
-
-        val linePath = Path()
-        val fillPath = Path()
-        values.forEachIndexed { index, value ->
-            val x = index * stepX
-            val normalized = ((value - minV) / range).coerceIn(0f, 1f)
-            val y = h - (normalized * h)
-            if (index == 0) {
-                linePath.moveTo(x, y)
-                fillPath.moveTo(x, h)
-                fillPath.lineTo(x, y)
-            } else {
-                linePath.lineTo(x, y)
-                fillPath.lineTo(x, y)
-            }
+        val pad = 3.dp.toPx()
+        val curve = values.mapIndexed { index, value ->
+            val normalized = (value / range).coerceIn(0f, 1f)
+            Offset(index * stepX, pad + (h - 2 * pad) * (1f - normalized))
         }
-        fillPath.lineTo(w, h)
-        fillPath.close()
 
-        drawPath(fillPath, brush = androidx.compose.ui.graphics.SolidColor(lineColor.copy(alpha = 0.12f)), style = Fill)
-        drawPath(linePath, color = lineColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
-        val lastValue = ((values.last() - minV) / range).coerceIn(0f, 1f)
-        drawCircle(lineColor, radius = 3.dp.toPx(), center = Offset(w, h - lastValue * h))
+        val areaPath = smoothLinePath(curve)
+        areaPath.lineTo(w, h)
+        areaPath.lineTo(0f, h)
+        areaPath.close()
+        drawPath(areaPath, color = lineColor.copy(alpha = 0.14f), style = Fill)
+        drawPath(
+            smoothLinePath(curve),
+            color = lineColor,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        )
+        drawCircle(lineColor, radius = 3.5.dp.toPx(), center = curve.last())
     }
 }

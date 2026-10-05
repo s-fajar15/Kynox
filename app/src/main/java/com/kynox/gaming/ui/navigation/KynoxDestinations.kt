@@ -11,6 +11,9 @@ sealed class Dest(val route: String) {
     data object Monitor : Dest("monitor")
     data object Device : Dest("device")
     data object Settings : Dest("settings")
+    data object Backup : Dest("settings/backup")
+    data object QuickPanel : Dest("settings/quick-panel")
+    data object Cleaner : Dest("device/cleaner")
 
     data object DeviceInfo : Dest("device/info")
     data object Cpu : Dest("device/cpu")

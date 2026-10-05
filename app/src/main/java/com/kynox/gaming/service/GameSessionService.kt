@@ -62,7 +62,7 @@ class GameSessionService : Service() {
                 samplingJob?.cancel()
                 overlayJob?.cancel()
                 overlay?.hide()
-                val fpsOverlay = FpsOverlay(this) { requestStop() }
+                val fpsOverlay = FpsOverlay(this, onResize = { delta -> scope.launch { container.settingsRepository.resizeOverlay(delta) } }) { requestStop() }
                 overlay = fpsOverlay
                 styleJob?.cancel()
                 styleJob = scope.launch {
@@ -150,6 +150,7 @@ class GameSessionService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.SESSION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
+            .setColor(0xFF2F6FED.toInt())
             .setContentTitle(getString(R.string.notif_session_title))
             .setContentText(getString(R.string.notif_session_text, label ?: ""))
             .setOngoing(true)

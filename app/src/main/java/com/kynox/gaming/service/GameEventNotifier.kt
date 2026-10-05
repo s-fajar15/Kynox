@@ -20,6 +20,8 @@ object GameEventNotifier {
 
     private const val PROFILE_APPLIED_ID = 2001
     private const val THERMAL_WARNING_ID = 2002
+    private const val RESTORED_ID = 2003
+    private const val AUTOMATION_ID = 2004
 
     /** Event notifications remove themselves after this long, so they never pile up in the shade. */
     private const val EVENT_TIMEOUT_MS = 15_000L
@@ -38,6 +40,21 @@ object GameEventNotifier {
         post(context, THERMAL_WARNING_ID, context.getString(R.string.notif_thermal_warning_title), text)
     }
 
+    /** [detail] sudah berupa teks siap tampil, mis. "Profil Performa · 120 Hz". */
+    fun notifyAutomationApplied(context: Context, appLabel: String, detail: String) {
+        post(
+            context, AUTOMATION_ID, context.getString(R.string.notif_profile_applied_title),
+            context.getString(R.string.notif_automation_applied_text, appLabel, detail)
+        )
+    }
+
+    fun notifyRestored(context: Context, appLabel: String) {
+        post(
+            context, RESTORED_ID, context.getString(R.string.notif_restored_title),
+            context.getString(R.string.notif_restored_text, appLabel)
+        )
+    }
+
     private fun post(context: Context, id: Int, title: String, text: String) {
         val openIntent = PendingIntent.getActivity(
             context, id,
@@ -46,6 +63,7 @@ object GameEventNotifier {
         )
         val notification = NotificationCompat.Builder(context, NotificationChannels.EVENTS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
+            .setColor(0xFF2F6FED.toInt())
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)

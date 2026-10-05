@@ -191,6 +191,7 @@ class RefreshRateService : Service() {
         // never exposes the implementation detail "Refresh Rate per App".
         return NotificationCompat.Builder(this, NotificationChannels.MONITOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
+            .setColor(0xFF2F6FED.toInt())
             .setContentTitle(getString(R.string.notif_service_title))
             .setContentText(getString(R.string.notif_service_text))
             .setOngoing(false)

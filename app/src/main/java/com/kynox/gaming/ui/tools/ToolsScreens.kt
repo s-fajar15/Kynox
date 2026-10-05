@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -36,6 +37,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,13 +54,23 @@ import com.kynox.gaming.core.utils.AppResult
 import com.kynox.gaming.data.automation.AutomationRule
 import com.kynox.gaming.data.network.NetworkSnapshot
 import com.kynox.gaming.domain.model.ProfileType
+import com.kynox.gaming.ui.components.ConfirmDialog
 import com.kynox.gaming.ui.components.DetailTopBar
+import com.kynox.gaming.ui.components.DropdownSelector
+import com.kynox.gaming.ui.components.KButton
+import com.kynox.gaming.ui.components.KOutlinedButton
+import com.kynox.gaming.ui.components.StatusPill
+import com.kynox.gaming.ui.components.kynoxCard
 import com.kynox.gaming.ui.components.GenericViewModelFactory
 import com.kynox.gaming.ui.theme.KynoxAccentDark
 import com.kynox.gaming.ui.theme.KynoxIcons
+import com.kynox.gaming.ui.theme.StatusDanger
+import com.kynox.gaming.ui.theme.StatusGood
+import com.kynox.gaming.ui.theme.StatusWarning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.text.DateFormat
@@ -74,8 +87,8 @@ private fun ToolScaffold(title: String, onBack: () -> Unit, content: @Composable
 
 @Composable
 private fun ToolCard(title: String, subtitle: String? = null, icon: androidx.compose.ui.graphics.vector.ImageVector = KynoxIcons.Info, content: @Composable () -> Unit) {
-    ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Box(Modifier.fillMaxWidth().kynoxCard()) {
+        Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = KynoxAccentDark, modifier = Modifier.size(19.dp)) }
                 Spacer(Modifier.width(10.dp))
@@ -86,50 +99,128 @@ private fun ToolCard(title: String, subtitle: String? = null, icon: androidx.com
     }
 }
 
+private val PACKAGE_NAME_REGEX = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
+
 @Composable
 fun AutomationScreen(container: AppContainer, onBack: () -> Unit) {
     var enabled by remember { mutableStateOf(false) }
     var rules by remember { mutableStateOf(emptyList<AutomationRule>()) }
+    var supportedHz by remember { mutableStateOf(emptyList<Int>()) }
     var pkg by remember { mutableStateOf("") }
     var label by remember { mutableStateOf("") }
-    var hz by remember { mutableStateOf("120") }
-    var profile by remember { mutableStateOf("GAMING") }
+    var hz by remember { mutableStateOf<Int?>(null) }
+    var profile by remember { mutableStateOf<String?>(null) }
+    var pendingDelete by remember { mutableStateOf<AutomationRule?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { enabled = container.automationRepository.isEnabled(); rules = container.automationRepository.list() }
+    LaunchedEffect(Unit) {
+        enabled = container.automationRepository.isEnabled()
+        rules = container.automationRepository.list()
+        supportedHz = withContext(Dispatchers.IO) { container.refreshRateRepository.supportedRefreshRates() }.distinct().sorted()
+    }
+
+    pendingDelete?.let { target ->
+        ConfirmDialog(
+            title = "Hapus aturan?",
+            message = "Aturan untuk ${target.label} akan dihapus. Aplikasi itu tidak lagi memicu perubahan otomatis.",
+            confirmLabel = "Hapus",
+            onConfirm = {
+                pendingDelete = null
+                scope.launch(Dispatchers.IO) {
+                    container.automationRepository.delete(target.id)
+                    rules = container.automationRepository.list()
+                }
+            },
+            onDismiss = { pendingDelete = null }
+        )
+    }
+
+    val packageValid = PACKAGE_NAME_REGEX.matches(pkg.trim())
+    val duplicate = rules.any { it.packageName == pkg.trim() }
+    val hasAction = hz != null || profile != null
+    val noAction = "Tidak diubah"
+    val hzOptions = listOf(noAction) + supportedHz.map { "$it Hz" }
+    val noProfile = "Tanpa profil"
+    val profileOptions = listOf(noProfile) + ProfileType.values().map { it.name }
+
     ToolScaffold("Automation Rules", onBack) {
-        ToolCard("Automation Engine", "Jalankan aturan saat aplikasi tertentu menjadi foreground", KynoxIcons.Profiles) {
+        ToolCard("Automation Engine", "Jalankan aturan saat aplikasi dibuka, dan kembalikan profil serta refresh rate sebelumnya saat aplikasi ditutup", KynoxIcons.Profiles) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(if (enabled) "Aktif" else "Tidak aktif", fontWeight = FontWeight.Medium); Text("Memantau foreground melalui service Kynox", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(Modifier.weight(1f)) {
+                    StatusPill(if (enabled) "Aktif" else "Tidak aktif", if (enabled) StatusGood else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Memantau aplikasi di depan lewat service Kynox (butuh root).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Switch(enabled, onCheckedChange = { value ->
                     enabled = value
-                    scope.launch(Dispatchers.IO) { container.automationRepository.setEnabled(value) }
-                    if (value) ContextCompat.startForegroundService(context, Intent(context, com.kynox.gaming.service.GameDetectionService::class.java).setAction(com.kynox.gaming.service.GameDetectionService.ACTION_START))
+                    scope.launch {
+                        // Simpan dulu, baru nyalakan service, supaya service tidak melihat status lama lalu berhenti.
+                        withContext(Dispatchers.IO) { container.automationRepository.setEnabled(value) }
+                        if (value) ContextCompat.startForegroundService(context, Intent(context, com.kynox.gaming.service.GameDetectionService::class.java).setAction(com.kynox.gaming.service.GameDetectionService.ACTION_START))
+                    }
                 })
             }
         }
-        ToolCard("Aturan baru", "Contoh: Free Fire → 120 Hz + Gaming", KynoxIcons.Apps) {
-            OutlinedTextField(pkg, { pkg = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Package aplikasi") }, placeholder = { Text("com.example.app") })
-            OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Nama aplikasi") })
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(hz, { hz = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("Refresh Hz") })
-                OutlinedTextField(profile, { profile = it.uppercase() }, Modifier.weight(1f), singleLine = true, label = { Text("Profile") })
+        ToolCard("Aturan baru", "Pilih aplikasi, lalu tentukan aksi saat aplikasi itu dibuka", KynoxIcons.Apps) {
+            OutlinedTextField(
+                pkg, { pkg = it.trim() }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text("Package aplikasi") }, placeholder = { Text("com.example.app") },
+                isError = pkg.isNotEmpty() && (!packageValid || duplicate),
+                supportingText = {
+                    when {
+                        pkg.isNotEmpty() && !packageValid -> Text("Format package tidak valid.")
+                        duplicate -> Text("Aplikasi ini sudah punya aturan. Hapus dulu aturan lamanya.")
+                        else -> Unit
+                    }
+                }
+            )
+            OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Nama aplikasi (opsional)") })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Refresh rate", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                DropdownSelector(
+                    label = "", selected = hz?.let { "$it Hz" } ?: noAction, options = hzOptions, enabled = supportedHz.isNotEmpty(),
+                    onSelected = { picked -> hz = if (picked == noAction) null else picked.removeSuffix(" Hz").toIntOrNull() }
+                )
             }
-            Button(enabled = pkg.isNotBlank(), onClick = {
-                val rule = AutomationRule(UUID.randomUUID().toString().take(8), pkg.trim(), label.ifBlank { pkg.trim() }, true, hz.toIntOrNull(), profile.takeIf { it.isNotBlank() })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Profil performa", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                DropdownSelector(
+                    label = "", selected = profile ?: noProfile, options = profileOptions, enabled = true,
+                    onSelected = { picked -> profile = if (picked == noProfile) null else picked }
+                )
+            }
+            if (!hasAction) Text("Pilih minimal satu aksi (refresh rate atau profil).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            KButton(enabled = packageValid && !duplicate && hasAction, onClick = {
+                val rule = AutomationRule(UUID.randomUUID().toString().take(8), pkg.trim(), label.ifBlank { pkg.trim() }, true, hz, profile)
                 scope.launch(Dispatchers.IO) { container.automationRepository.upsert(rule); rules = container.automationRepository.list() }
-                pkg = ""; label = ""
+                pkg = ""; label = ""; hz = null; profile = null
             }, modifier = Modifier.fillMaxWidth()) { Text("Simpan aturan") }
+        }
+        if (rules.isEmpty()) {
+            Text("Belum ada aturan.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         rules.forEach { rule ->
             ToolCard(rule.label, rule.packageName, KynoxIcons.RefreshRate) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("${rule.refreshRateHz ?: 60} Hz  ·  ${rule.profile ?: "tanpa profile"}", style = MaterialTheme.typography.bodySmall) }
-                    Text("Hapus", color = MaterialTheme.colorScheme.error, modifier = Modifier.clickable { scope.launch(Dispatchers.IO) { container.automationRepository.delete(rule.id); rules = container.automationRepository.list() } }.padding(6.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Saat dibuka: " + listOfNotNull(rule.refreshRateHz?.let { "$it Hz" }, rule.profile?.let { "profil $it" }).joinToString(" + ").ifEmpty { "tanpa aksi" },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        StatusPill(if (rule.enabled) "Aturan aktif" else "Aturan dimatikan", if (rule.enabled) StatusGood else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(rule.enabled, onCheckedChange = { value ->
+                        scope.launch(Dispatchers.IO) {
+                            container.automationRepository.upsert(rule.copy(enabled = value))
+                            rules = container.automationRepository.list()
+                        }
+                    })
                 }
+                KOutlinedButton(onClick = { pendingDelete = rule }, modifier = Modifier.fillMaxWidth()) { Text("Hapus aturan", color = StatusDanger) }
             }
         }
-        Text("Automation tidak mengubah thermal safety dan hanya menjalankan rule yang kamu buat.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Automation tidak mengubah thermal safety dan hanya menjalankan aturan yang kamu buat. Profil yang diterapkan tidak dikembalikan otomatis saat aplikasi ditutup.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -138,7 +229,7 @@ fun NetworkMonitorScreen(container: AppContainer, onBack: () -> Unit) {
     var sample by remember { mutableStateOf<NetworkSnapshot?>(null) }
     var history by remember { mutableStateOf(emptyList<NetworkSnapshot>()) }
     LaunchedEffect(Unit) {
-        while (true) { sample = container.networkRepository.sample(); history = container.networkRepository.history(); delay(2000) }
+        while (true) { com.kynox.gaming.core.utils.AppVisibility.awaitForeground(); sample = container.networkRepository.sample(); history = container.networkRepository.history(); delay(2000) }
     }
     ToolScaffold("Network Monitor", onBack) {
         ToolCard("Koneksi aktif", sample?.transport ?: container.networkRepository.currentTransport(), KynoxIcons.Monitor) {
@@ -172,34 +263,118 @@ private fun formatBytes(bytes: Long): String = when { bytes >= 1_000_000_000 -> 
 
 @Composable
 fun SelinuxMonitorScreen(container: AppContainer, onBack: () -> Unit) {
-    var status by remember { mutableStateOf("Membaca…") }
+    var status by remember { mutableStateOf<String?>(null) }
     var denials by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }
+    var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    fun reload() { scope.launch(Dispatchers.IO) { status = container.rootExecutor.execute("getenforce").stdout.trim().ifBlank { "Tidak tersedia" }; denials = container.rootExecutor.execute("dmesg 2>/dev/null | grep -i 'avc: denied' | tail -n 40").stdout.trim() } }
+    fun reload() {
+        scope.launch {
+            loading = true
+            try {
+                val (s1, d1) = withContext(Dispatchers.IO) {
+                    val st = container.rootExecutor.execute("getenforce")
+                    val dn = container.rootExecutor.execute("dmesg 2>/dev/null | grep -i 'avc: denied' | tail -n 40")
+                    (if (st.isSuccess) st.stdout.trim().ifBlank { null } else null) to dn.stdout.trim()
+                }
+                status = s1; denials = d1; failed = s1 == null
+            } catch (t: Throwable) {
+                status = null; denials = ""; failed = true
+            }
+            loading = false
+        }
+    }
     LaunchedEffect(Unit) { reload() }
     ToolScaffold("SELinux Monitor", onBack) {
-        ToolCard("SELinux", "Status enforcement perangkat", KynoxIcons.Root) { Text(status, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); OutlinedButton(onClick = ::reload) { Text("Refresh") } }
-        ToolCard("AVC denials", "40 event terakhir yang bisa dibaca root", KynoxIcons.Logs) { Text(if (denials.isBlank()) "Tidak ada denial terbaca." else denials, style = MaterialTheme.typography.bodySmall) }
+        ToolCard("SELinux", "Status enforcement perangkat", KynoxIcons.Root) {
+            val current = status
+            when {
+                loading -> Text("Membaca…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                current == null -> {
+                    StatusPill("Tidak terbaca", StatusWarning)
+                    Text(if (failed) "Status tidak bisa dibaca. Pastikan akses root diberikan, lalu coba lagi." else "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                else -> {
+                    StatusPill(current, if (current.equals("Enforcing", true)) StatusGood else StatusWarning)
+                    if (current.equals("Permissive", true)) {
+                        Text("Permissive: pelanggaran kebijakan hanya dicatat, tidak diblokir.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            KOutlinedButton(onClick = { reload() }, enabled = !loading) { Text(if (loading) "Memeriksa…" else "Refresh") }
+        }
+        ToolCard("AVC denials", "40 event terakhir yang bisa dibaca root", KynoxIcons.Logs) {
+            if (loading) {
+                Text("Membaca…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else if (denials.isBlank()) {
+                Text("Tidak ada denial terbaca.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                SelectionContainer {
+                    Text(denials.take(MAX_CONSOLE_CHARS), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
         Text("Kynox hanya membaca status dan log SELinux; tidak mengubah enforcement policy.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
+private const val MAX_CONSOLE_CHARS = 20_000
+
 @Composable
 fun KynoxSnapshotScreen(container: AppContainer, onBack: () -> Unit) {
-    var text by remember { mutableStateOf("Belum ada snapshot.") }
-    var savedPath by remember { mutableStateOf<String?>(null) }
+    var text by remember { mutableStateOf<String?>(null) }
+    var savedName by remember { mutableStateOf<String?>(null) }
+    var capturing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val dir = remember { File(context.filesDir, "kynox_snapshots") }
+
+    // Tampilkan snapshot terakhir yang sudah tersimpan, jika ada.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val latest = dir.listFiles { f -> f.extension == "json" }?.maxByOrNull { it.lastModified() }
+            if (latest != null) {
+                runCatching { latest.readText() }.getOrNull()?.let { text = it; savedName = latest.name }
+            }
+        }
+    }
+
     suspend fun capture() {
         val d = container.deviceInfoRepository.load(); val b = container.batteryRepository.readInfo(); val c = container.cpuRepository.readSnapshot(); val g = container.gpuRepository.readState(); val t = container.thermalRepository.readZones(); val root = container.rootRepository.current()
         val json = JSONObject().apply {
             put("timestamp", System.currentTimeMillis()); put("device", JSONObject().apply { put("model", d.model); put("android", d.androidVersion); put("kernel", d.kernelVersion); put("selinux", d.selinuxStatus); put("root", root.isAvailable) }); put("display", d.display.resolution + " @ " + d.display.refreshRateHz + "Hz"); put("battery", JSONObject().apply { put("percent", b.capacityPercent ?: -1); put("temperatureC", b.temperatureCelsius); put("voltageV", b.voltageMilliVolts); put("currentMa", b.currentMicroAmps) }); put("cpuCores", c.cores.size); put("gpu", if (g.supported) "supported" else "unavailable"); put("thermalZones", t.size)
         }
-        val file = File(context.filesDir, "kynox_snapshots").apply { mkdirs() }.resolve("snapshot_${System.currentTimeMillis()}.json"); file.writeText(json.toString(2)); savedPath = file.absolutePath; text = json.toString(2)
+        dir.mkdirs()
+        val file = dir.resolve("snapshot_${System.currentTimeMillis()}.json")
+        file.writeText(json.toString(2))
+        savedName = file.name
+        text = json.toString(2)
     }
     ToolScaffold("Kynox Snapshot", onBack) {
-        ToolCard("Device Snapshot", "Simpan kondisi perangkat saat ini sebagai JSON", KynoxIcons.Device) { Button(onClick = { scope.launch(Dispatchers.IO) { capture() } }, modifier = Modifier.fillMaxWidth()) { Text("Ambil snapshot") } }
-        ToolCard("Snapshot terbaru", savedPath ?: "Belum tersimpan", KynoxIcons.Info) { Text(text, style = MaterialTheme.typography.bodySmall) }
+        ToolCard("Device Snapshot", "Simpan kondisi perangkat saat ini sebagai JSON", KynoxIcons.Device) {
+            KButton(enabled = !capturing, onClick = {
+                capturing = true; error = null
+                scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) { capture() }
+                    } catch (t: Throwable) {
+                        error = "Snapshot gagal diambil. Coba lagi."
+                    }
+                    capturing = false
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (capturing) "Mengambil…" else "Ambil snapshot") }
+            error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = StatusDanger) }
+        }
+        ToolCard("Snapshot terbaru", savedName ?: "Belum tersimpan", KynoxIcons.Info) {
+            val shown = text
+            if (shown == null) {
+                Text("Belum ada snapshot.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                SelectionContainer { Text(shown, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+            }
+        }
+        Text("Snapshot disimpan di penyimpanan privat Kynox dan tidak dikirim ke mana pun.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -227,40 +402,141 @@ fun SessionCompareScreen(container: AppContainer, onBack: () -> Unit) {
 @Composable private fun CompareRow(label: String, a: String?, b: String?) { Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) { Text(label, Modifier.weight(1.2f), style = MaterialTheme.typography.bodySmall); Text(a ?: "—", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall); Text(b ?: "—", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall) } }
 private fun formatDuration(ms: Long): String { val s = ms / 1000; return "%02d:%02d".format(s / 60, s % 60) }
 
+private enum class ConsoleKind { COMMAND, OUTPUT, ERROR, INFO }
+private data class ConsoleLine(val kind: ConsoleKind, val text: String)
+
+
 @Composable
 fun CommandConsoleScreen(container: AppContainer, onBack: () -> Unit) {
-    var command by remember { mutableStateOf("") }; var output by remember { mutableStateOf("$ id\nKynox root console siap.") }; var running by remember { mutableStateOf(false) }
+    var command by remember { mutableStateOf("") }
+    var lines by remember { mutableStateOf(listOf(ConsoleLine(ConsoleKind.INFO, "Konsol root siap. Output dan error ditampilkan terpisah."))) }
+    var running by remember { mutableStateOf(false) }
+    var pendingRisky by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    fun runCommand(cmd: String) {
+        running = true
+        lines = (lines + ConsoleLine(ConsoleKind.COMMAND, "$ $cmd")).takeLast(200)
+        scope.launch {
+            val added = mutableListOf<ConsoleLine>()
+            try {
+                val r = withContext(Dispatchers.IO) { container.rootExecutor.execute(cmd, 10000) }
+                if (r.stdout.isNotBlank()) added += ConsoleLine(ConsoleKind.OUTPUT, r.stdout.trimEnd().take(MAX_CONSOLE_CHARS))
+                if (r.stderr.isNotBlank()) added += ConsoleLine(ConsoleKind.ERROR, r.stderr.trimEnd().take(MAX_CONSOLE_CHARS))
+                if (r.timedOut) added += ConsoleLine(ConsoleKind.ERROR, "Waktu habis (10 detik). Perintah dihentikan.")
+                else added += ConsoleLine(ConsoleKind.INFO, "exit ${r.exitCode} · ${r.durationMs} ms")
+            } catch (t: Throwable) {
+                added += ConsoleLine(ConsoleKind.ERROR, "Perintah gagal dijalankan.")
+            }
+            lines = (lines + added).takeLast(200)
+            running = false
+        }
+    }
+
+    fun submit() {
+        val cmd = command.trim()
+        if (cmd.isEmpty() || running) return
+        when {
+            cmd.length > 2000 -> lines = lines + ConsoleLine(ConsoleKind.ERROR, "Perintah terlalu panjang (maks 2000 karakter).")
+            classifyCommand(cmd) == CommandRisk.BLOCKED ->
+                lines = (lines + ConsoleLine(ConsoleKind.COMMAND, "$ $cmd") + ConsoleLine(ConsoleKind.ERROR, "Diblokir: perintah ini bisa merusak perangkat dan tidak dijalankan dari konsol.")).takeLast(200)
+            classifyCommand(cmd) == CommandRisk.RISKY -> pendingRisky = cmd
+            else -> { command = ""; runCommand(cmd) }
+        }
+    }
+
+    pendingRisky?.let { cmd ->
+        ConfirmDialog(
+            title = "Jalankan perintah berisiko?",
+            message = "Perintah ini dapat mengubah atau menghapus data sistem:\n\n$cmd\n\nDijalankan sebagai root dan tidak bisa dibatalkan.",
+            confirmLabel = "Jalankan",
+            onConfirm = { pendingRisky = null; command = ""; runCommand(cmd) },
+            onDismiss = { pendingRisky = null }
+        )
+    }
+
     ToolScaffold("Command Console", onBack) {
         ToolCard("Root Console", "Perintah dijalankan melalui su. Gunakan hanya command yang kamu pahami.", KynoxIcons.Root) {
             OutlinedTextField(command, { command = it }, Modifier.fillMaxWidth(), minLines = 2, label = { Text("Command") }, placeholder = { Text("dumpsys display") })
-            Button(enabled = command.isNotBlank() && !running, onClick = { running = true; scope.launch(Dispatchers.IO) { val r = container.rootExecutor.execute(command.trim(), 10000); output = buildString { append(r.stdout); if (r.stderr.isNotBlank()) { append("\n\n[stderr]\n"); append(r.stderr) } }; running = false } }, modifier = Modifier.fillMaxWidth()) { Text(if (running) "Menjalankan…" else "Jalankan") }
+            KButton(enabled = command.isNotBlank() && !running, onClick = { submit() }, modifier = Modifier.fillMaxWidth()) { Text(if (running) "Menjalankan…" else "Jalankan") }
         }
-        ToolCard("Output", icon = KynoxIcons.Root) { Text(output, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = .08f), RoundedCornerShape(12.dp)).padding(12.dp)) }
+        ToolCard("Output", icon = KynoxIcons.Root) {
+            SelectionContainer {
+                Column(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    lines.forEach { line ->
+                        Text(
+                            line.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = when (line.kind) {
+                                ConsoleKind.COMMAND -> MaterialTheme.colorScheme.primary
+                                ConsoleKind.OUTPUT -> MaterialTheme.colorScheme.onSurface
+                                ConsoleKind.ERROR -> StatusDanger
+                                ConsoleKind.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (line.kind == ConsoleKind.COMMAND) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+            KOutlinedButton(onClick = { lines = listOf(ConsoleLine(ConsoleKind.INFO, "Output dibersihkan.")) }, enabled = !running) { Text("Bersihkan output") }
+        }
     }
 }
 
+private data class DiagItem(val name: String, val ok: Boolean, val detail: String)
+
 @Composable
 fun DiagnosticsScreen(container: AppContainer, onBack: () -> Unit) {
-    var lines by remember { mutableStateOf(listOf("Menjalankan pemeriksaan…")) }
-    LaunchedEffect(Unit) {
-        val root = container.rootRepository.current(); val device = container.deviceInfoRepository.load(); val zones = container.thermalRepository.readZones(); val battery = container.batteryRepository.readInfo(); val display = container.refreshRateRepository.supportedRefreshRates()
-        lines = listOf(
-            checkLine("Root access", root.isAvailable, root.provider.name),
-            checkLine("SELinux", device.selinuxStatus.equals("Enforcing", true), device.selinuxStatus),
-            checkLine("Display modes", display.isNotEmpty(), display.joinToString(", ") + " Hz"),
-            checkLine("Thermal sensors", zones.isNotEmpty(), "${zones.size} zone"),
-            checkLine("Battery telemetry", (battery.capacityPercent ?: -1) >= 0, "${battery.capacityPercent ?: -1}%"),
-            checkLine("Android", Build.VERSION.SDK_INT >= 26, "API ${Build.VERSION.SDK_INT}"),
-            checkLine("GPU telemetry", !device.gpuRenderer.contains("unknown", true), device.gpuRenderer)
-        )
+    var items by remember { mutableStateOf(emptyList<DiagItem>()) }
+    var running by remember { mutableStateOf(true) }
+    var runId by remember { mutableIntStateOf(0) }
+    LaunchedEffect(runId) {
+        running = true
+        items = try {
+            withContext(Dispatchers.IO) {
+                val root = container.rootRepository.current(); val device = container.deviceInfoRepository.load(); val zones = container.thermalRepository.readZones(); val battery = container.batteryRepository.readInfo(); val display = container.refreshRateRepository.supportedRefreshRates()
+                listOf(
+                    DiagItem("Root access", root.isAvailable, root.provider.name),
+                    DiagItem("SELinux", device.selinuxStatus.equals("Enforcing", true), device.selinuxStatus),
+                    DiagItem("Display modes", display.isNotEmpty(), display.joinToString(", ") + " Hz"),
+                    DiagItem("Thermal sensors", zones.isNotEmpty(), "${zones.size} zone"),
+                    DiagItem("Battery telemetry", (battery.capacityPercent ?: -1) >= 0, "${battery.capacityPercent ?: -1}%"),
+                    DiagItem("Android", Build.VERSION.SDK_INT >= 26, "API ${Build.VERSION.SDK_INT}"),
+                    DiagItem("GPU telemetry", !device.gpuRenderer.contains("unknown", true), device.gpuRenderer)
+                )
+            }
+        } catch (t: Throwable) {
+            listOf(DiagItem("Pemeriksaan", false, "Gagal dijalankan. Coba periksa ulang."))
+        }
+        running = false
     }
+    val failing = items.count { !it.ok }
     ToolScaffold("Kynox Diagnostics", onBack) {
         ToolCard("System check", "Pemeriksaan read-only", KynoxIcons.Info) {
-            lines.forEach { line -> Text(line, style = MaterialTheme.typography.bodySmall); HorizontalDivider() }
-            OutlinedButton(onClick = { lines = listOf("Tekan kembali lalu buka Diagnostics lagi untuk pemeriksaan baru.") }) { Text("Selesai") }
+            if (running) {
+                Text("Menjalankan pemeriksaan…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                StatusPill(
+                    if (failing == 0) "Semua pemeriksaan lolos" else "$failing dari ${items.size} perlu perhatian",
+                    if (failing == 0) StatusGood else StatusWarning
+                )
+                items.forEach { item ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (item.ok) "✓" else "!", color = if (item.ok) StatusGood else StatusWarning, fontWeight = FontWeight.Bold, modifier = Modifier.width(22.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(item.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    HorizontalDivider()
+                }
+            }
+            KOutlinedButton(onClick = { runId++ }, enabled = !running) { Text(if (running) "Memeriksa…" else "Periksa ulang") }
         }
         Text("Diagnostics tidak mengubah konfigurasi sistem.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-private fun checkLine(name: String, ok: Boolean, detail: String): String = "${if (ok) "✓" else "!"}  $name  ·  $detail"

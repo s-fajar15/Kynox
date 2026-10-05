@@ -17,6 +17,7 @@ class GpuViewModel(private val repository: GpuRepository) : ViewModel() {
     init {
         viewModelScope.launch {
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 _state.value = repository.readState()
                 delay(2000)
             }

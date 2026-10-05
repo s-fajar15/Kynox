@@ -1,5 +1,19 @@
 package com.kynox.gaming.ui.device
 
+import com.kynox.gaming.ui.components.VendorLogoTile
+import androidx.compose.foundation.layout.height
+import com.kynox.gaming.ui.components.kynoxCard
+import com.kynox.gaming.ui.components.VendorStyle
+import com.kynox.gaming.ui.components.VendorCatalog
+import com.kynox.gaming.ui.components.VendorBadge
+import com.kynox.gaming.domain.model.DeviceInfo
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,10 +37,45 @@ import com.kynox.gaming.ui.components.DetailTopBar
 import com.kynox.gaming.ui.components.GenericViewModelFactory
 import com.kynox.gaming.ui.components.MetricRow
 import com.kynox.gaming.ui.components.SectionCard
+import com.kynox.gaming.ui.theme.KynoxShapes
 
 private fun formatBytesGb(bytes: Long): String {
     val gb = bytes / (1024.0 * 1024.0 * 1024.0)
     return "%.2f GB".format(gb)
+}
+
+@Composable
+private fun VendorHeader(info: DeviceInfo?) {
+    val brand = VendorCatalog.brand(info?.manufacturer, info?.brand)
+    val chip = VendorCatalog.chipset(info?.socManufacturer, info?.socModel, info?.gpuRenderer)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        VendorCard(
+            badge = brand,
+            title = info?.brand?.takeIf { it.isNotBlank() }?.replaceFirstChar { it.uppercase() } ?: "…",
+            subtitle = info?.model ?: "…",
+            modifier = Modifier.weight(1f)
+        )
+        VendorCard(
+            badge = chip,
+            title = info?.socManufacturer?.takeIf { it.isNotBlank() && !it.equals("unknown", true) } ?: chip.key.replaceFirstChar { it.uppercase() },
+            subtitle = info?.socModel ?: "…",
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun VendorCard(badge: VendorStyle, title: String, subtitle: String, modifier: Modifier) {
+    Column(
+        modifier.kynoxCard(KynoxShapes.section).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        VendorLogoTile(badge, Modifier.fillMaxWidth().height(64.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
 }
 
 @Composable
@@ -44,6 +93,7 @@ fun DeviceInfoScreen(container: AppContainer, onBack: () -> Unit) {
         ) {
             items(1) {
                 androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                VendorHeader(info)
                 SectionCard(title = stringResource(R.string.section_system)) {
                     MetricRow(stringResource(R.string.field_manufacturer), info?.manufacturer ?: "…")
                     MetricRow(stringResource(R.string.field_brand), info?.brand ?: "…")

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "kynox_settings")
@@ -31,6 +32,20 @@ data class AppSettings(
     val overlayScalePercent: Int = 100,
     val overlayOpacityPercent: Int = 95,
     val monitorEnabled: Boolean = true,
+    /** Peringatan suhu (notifikasi). */
+    val notifyThermal: Boolean = true,
+    /** Ambang peringatan suhu dalam °C; [THERMAL_WARN_AUTO] = otomatis dari titik trip sensor. */
+    val thermalWarnThresholdC: Int = THERMAL_WARN_AUTO,
+    /** Jeda minimum antar notifikasi sejenis, dalam menit. */
+    val notifyCooldownMin: Int = 5,
+    /** Notifikasi "profil diterapkan / dikembalikan". */
+    val notifyProfileApplied: Boolean = true,
+    /** Simpan riwayat monitor ke penyimpanan lokal. */
+    val historyEnabled: Boolean = true,
+    /** Selang antar sampel yang disimpan ke riwayat, detik. */
+    val historyIntervalSec: Int = 30,
+    /** Berapa jam riwayat dipertahankan. */
+    val historyRetentionHours: Int = 24,
     /** Consecutive boots where a previous apply-on-boot cycle never confirmed it finished safely. */
     val bootFailureCount: Int = 0,
     /** Set automatically after [MAX_CONSECUTIVE_BOOT_FAILURES] suspected boot failures. While true, ProfileBootReceiver never applies a profile, regardless of applyOnBoot. */
@@ -39,6 +54,12 @@ data class AppSettings(
 
 /** Consecutive unresolved boots after which apply-on-boot auto-disables and Safe Mode engages. */
 const val MAX_CONSECUTIVE_BOOT_FAILURES = 2
+
+const val THERMAL_WARN_AUTO = 0
+val THERMAL_WARN_OPTIONS = listOf(THERMAL_WARN_AUTO, 42, 45, 48, 50, 55)
+val NOTIFY_COOLDOWN_OPTIONS_MIN = listOf(1, 5, 15, 30)
+val HISTORY_INTERVAL_OPTIONS_SEC = listOf(10, 30, 60, 300)
+val HISTORY_RETENTION_OPTIONS_HOURS = listOf(1, 6, 24, 72)
 
 const val OVERLAY_SCALE_MIN = 60
 const val OVERLAY_SCALE_MAX = 200
@@ -63,6 +84,13 @@ class SettingsRepository(private val context: Context) {
         val OVERLAY_SCALE = intPreferencesKey("overlay_scale_percent")
         val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity_percent")
         val MONITOR_ENABLED = booleanPreferencesKey("monitor_enabled")
+        val NOTIFY_THERMAL = booleanPreferencesKey("notify_thermal")
+        val THERMAL_WARN_C = intPreferencesKey("thermal_warn_threshold_c")
+        val NOTIFY_COOLDOWN = intPreferencesKey("notify_cooldown_min")
+        val NOTIFY_PROFILE = booleanPreferencesKey("notify_profile_applied")
+        val HISTORY_ENABLED = booleanPreferencesKey("history_enabled")
+        val HISTORY_INTERVAL = intPreferencesKey("history_interval_sec")
+        val HISTORY_RETENTION = intPreferencesKey("history_retention_hours")
         val BOOT_FAILURE_COUNT = intPreferencesKey("boot_failure_count")
         val SAFE_MODE_ACTIVE = booleanPreferencesKey("safe_mode_active")
     }
@@ -85,6 +113,13 @@ class SettingsRepository(private val context: Context) {
             overlayScalePercent = (prefs[Keys.OVERLAY_SCALE] ?: 100).coerceIn(OVERLAY_SCALE_MIN, OVERLAY_SCALE_MAX),
             overlayOpacityPercent = (prefs[Keys.OVERLAY_OPACITY] ?: 95).coerceIn(OVERLAY_OPACITY_MIN, 100),
             monitorEnabled = prefs[Keys.MONITOR_ENABLED] ?: true,
+            notifyThermal = prefs[Keys.NOTIFY_THERMAL] ?: true,
+            thermalWarnThresholdC = (prefs[Keys.THERMAL_WARN_C] ?: THERMAL_WARN_AUTO).let { if (it == THERMAL_WARN_AUTO) it else it.coerceIn(35, 80) },
+            notifyCooldownMin = (prefs[Keys.NOTIFY_COOLDOWN] ?: 5).coerceIn(1, 120),
+            notifyProfileApplied = prefs[Keys.NOTIFY_PROFILE] ?: true,
+            historyEnabled = prefs[Keys.HISTORY_ENABLED] ?: true,
+            historyIntervalSec = (prefs[Keys.HISTORY_INTERVAL] ?: 30).coerceIn(5, 3600),
+            historyRetentionHours = (prefs[Keys.HISTORY_RETENTION] ?: 24).coerceIn(1, 168),
             bootFailureCount = prefs[Keys.BOOT_FAILURE_COUNT] ?: 0,
             safeModeActive = prefs[Keys.SAFE_MODE_ACTIVE] ?: false
         )
@@ -143,6 +178,41 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMonitorEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.MONITOR_ENABLED] = enabled }
+    }
+
+    /** Pengaturan yang ikut dicadangkan (lihat [PortableSettings]). */
+    suspend fun exportPortable(): Map<String, Any> = PortableSettings.export(settingsFlow.first())
+
+    /** Menulis nilai hasil [PortableSettings.sanitize]; mengembalikan jumlah yang diterapkan. */
+    suspend fun importPortable(raw: Map<String, Any?>): Int {
+        val clean = PortableSettings.sanitize(raw)
+        context.dataStore.edit { prefs ->
+            clean.forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> prefs[booleanPreferencesKey(key)] = value
+                    is Int -> prefs[intPreferencesKey(key)] = value
+                    is String -> prefs[stringPreferencesKey(key)] = value
+                }
+            }
+        }
+        return clean.size
+    }
+
+    suspend fun setNotifications(thermal: Boolean, thresholdC: Int, cooldownMin: Int, profileApplied: Boolean) {
+        context.dataStore.edit {
+            it[Keys.NOTIFY_THERMAL] = thermal
+            it[Keys.THERMAL_WARN_C] = thresholdC
+            it[Keys.NOTIFY_COOLDOWN] = cooldownMin
+            it[Keys.NOTIFY_PROFILE] = profileApplied
+        }
+    }
+
+    suspend fun setHistory(enabled: Boolean, intervalSec: Int, retentionHours: Int) {
+        context.dataStore.edit {
+            it[Keys.HISTORY_ENABLED] = enabled
+            it[Keys.HISTORY_INTERVAL] = intervalSec
+            it[Keys.HISTORY_RETENTION] = retentionHours
+        }
     }
 
     /**

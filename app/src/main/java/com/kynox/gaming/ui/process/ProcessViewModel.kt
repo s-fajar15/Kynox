@@ -18,7 +18,9 @@ data class ProcessUiState(
     val query: String = "",
     val sort: ProcessSort = ProcessSort.CPU,
     val loading: Boolean = true,
-    val killingPid: Int? = null
+    val killingPid: Int? = null,
+    /** Hasil penghentian terakhir, diverifikasi dengan membaca ulang daftar proses. */
+    val killResult: KillResult? = null
 ) {
     val visible: List<ProcessInfo> get() {
         val filtered = if (query.isBlank()) processes else processes.filter {
@@ -32,6 +34,8 @@ data class ProcessUiState(
     }
 }
 
+data class KillResult(val name: String, val pid: Int, val success: Boolean)
+
 class ProcessViewModel(private val repository: ProcessRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(ProcessUiState())
     val uiState: StateFlow<ProcessUiState> = _uiState.asStateFlow()
@@ -39,6 +43,7 @@ class ProcessViewModel(private val repository: ProcessRepository) : ViewModel() 
     init {
         viewModelScope.launch {
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 val processes = repository.list()
                 _uiState.value = _uiState.value.copy(processes = processes, loading = false)
                 delay(REFRESH_INTERVAL_MS)
@@ -55,10 +60,23 @@ class ProcessViewModel(private val repository: ProcessRepository) : ViewModel() 
     }
 
     fun kill(pid: Int) {
+        if (_uiState.value.killingPid != null) return
+        val name = _uiState.value.processes.firstOrNull { it.pid == pid }?.name.orEmpty()
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(killingPid = pid)
+            _uiState.value = _uiState.value.copy(killingPid = pid, killResult = null)
             repository.kill(pid)
-            _uiState.value = _uiState.value.copy(processes = repository.list(), killingPid = null)
+            val after = repository.list()
+            // Berhasil hanya jika proses benar-benar sudah hilang dari daftar.
+            val gone = after.none { it.pid == pid }
+            _uiState.value = _uiState.value.copy(
+                processes = after,
+                killingPid = null,
+                killResult = KillResult(name, pid, gone)
+            )
         }
+    }
+
+    fun dismissKillResult() {
+        _uiState.value = _uiState.value.copy(killResult = null)
     }
 }

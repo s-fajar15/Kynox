@@ -33,6 +33,7 @@ class ThermalViewModel(private val repository: ThermalRepository) : ViewModel() 
     init {
         viewModelScope.launch {
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 // Do not overwrite the state while a change is being applied.
                 if (!_uiState.value.busy) {
                     val zones = repository.readZones()

@@ -44,6 +44,7 @@ class GamingViewModel(
             )
             // Auto Game Mode can flip the state while this screen is open.
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 delay(ACTIVE_REFRESH_MS)
                 if (!_uiState.value.busy) {
                     _uiState.value = _uiState.value.copy(

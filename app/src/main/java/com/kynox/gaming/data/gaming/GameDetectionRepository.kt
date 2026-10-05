@@ -67,9 +67,15 @@ class GameDetectionRepository(
         }
     }
 
+    /** Aplikasi di depan pada polling terakhir (null bila tidak terbaca). Dipakai Automation agar tidak membaca dua kali. */
+    @Volatile var lastForeground: String? = null
+        private set
+
     suspend fun poll(selfPackage: String): DetectionEvent = mutex.withLock {
         ensureLoaded()
-        val foreground = foregroundAppReader.read() ?: return@withLock DetectionEvent.None
+        val foreground = foregroundAppReader.read()
+        lastForeground = foreground
+        if (foreground == null) return@withLock DetectionEvent.None
         if (foreground == selfPackage) return@withLock DetectionEvent.None
         val managed = gameLibraryRepository.managedPackages()
         if (foreground in managed) {

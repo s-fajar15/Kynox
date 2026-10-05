@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -20,6 +21,11 @@ import com.kynox.gaming.ui.navigation.bottomNavItems
 @Composable
 fun KynoxApp(container: AppContainer) {
     val navController = rememberNavController()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val uiPrefs = androidx.compose.runtime.remember { context.getSharedPreferences("kynox_ui", android.content.Context.MODE_PRIVATE) }
+    var showPermissionPrompt by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(!uiPrefs.getBoolean("permission_prompt_done", false))
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination
 
@@ -56,6 +62,12 @@ fun KynoxApp(container: AppContainer) {
         // terakhir tidak tertutup bar.
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
             KynoxNavHost(navController = navController, container = container)
+        }
+        if (showPermissionPrompt) {
+            com.kynox.gaming.ui.components.PermissionPrompt(onDismiss = {
+                uiPrefs.edit().putBoolean("permission_prompt_done", true).apply()
+                showPermissionPrompt = false
+            })
         }
     }
 }

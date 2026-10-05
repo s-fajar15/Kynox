@@ -20,6 +20,7 @@ class CpuViewModel(private val repository: CpuRepository) : ViewModel() {
     init {
         viewModelScope.launch {
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 _snapshot.value = repository.readSnapshot()
                 delay(2000)
             }

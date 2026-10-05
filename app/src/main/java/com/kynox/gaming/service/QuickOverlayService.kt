@@ -51,7 +51,7 @@ class QuickOverlayService : Service() {
 
                 job?.cancel()
                 overlay?.hide()
-                val metricsOverlay = MetricsOverlay(this) { requestStop() }
+                val metricsOverlay = MetricsOverlay(this, onResize = { delta -> scope.launch { container.settingsRepository.resizeOverlay(delta) } }) { requestStop() }
                 overlay = metricsOverlay
 
                 styleJob?.cancel()
@@ -152,6 +152,7 @@ class QuickOverlayService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.OVERLAY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
+            .setColor(0xFF2F6FED.toInt())
             .setContentTitle(getString(R.string.notif_overlay_title))
             .setContentText(getString(R.string.notif_overlay_text))
             .setOngoing(true)

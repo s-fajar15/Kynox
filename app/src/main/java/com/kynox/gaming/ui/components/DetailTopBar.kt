@@ -1,5 +1,6 @@
 package com.kynox.gaming.ui.components
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +40,9 @@ fun KynoxTopBar(
             .statusBarsPadding()
     ) {
         Row(
-            Modifier.fillMaxWidth().height(66.dp).padding(start = if (navigationIcon == null) 18.dp else 6.dp, end = 12.dp),
+            Modifier.fillMaxWidth()
+                .then(if (navigationIcon == null) Modifier.heightIn(min = 84.dp).padding(top = 6.dp, bottom = 4.dp) else Modifier.height(66.dp))
+                .padding(start = if (navigationIcon == null) 20.dp else 6.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             navigationIcon?.invoke()
@@ -50,7 +53,8 @@ fun KynoxTopBar(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = if (navigationIcon == null) MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                    else MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -58,7 +62,7 @@ fun KynoxTopBar(
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = if (navigationIcon == null) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

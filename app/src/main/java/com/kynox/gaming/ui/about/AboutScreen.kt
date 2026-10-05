@@ -1,5 +1,9 @@
 package com.kynox.gaming.ui.about
 
+import com.kynox.gaming.ui.theme.KynoxIcons
+import com.kynox.gaming.ui.components.KynoxListRow
+import com.kynox.gaming.ui.components.ListCard
+import com.kynox.gaming.ui.components.KMark
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -58,49 +62,57 @@ fun AboutScreen(container: AppContainer, onBack: () -> Unit) {
         @Suppress("DEPRECATION") packageInfo?.versionCode?.toLong()
     }
 
-    Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.about_label), onBack = onBack) }) { padding ->
+    val githubUrl = stringResource(R.string.about_github_url)
+    val openGithub = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(githubUrl))) }; Unit }
+
+    Scaffold(topBar = { DetailTopBar(title = "Tentang Kynox", onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             item {
-                HighlightPanel {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(R.string.about_app_name), style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            stringResource(R.string.about_app_tagline),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            item {
-                SectionCard(title = stringResource(R.string.about_section_app)) {
-                    AboutRow(stringResource(R.string.field_version), if (versionCode != null) "$versionName ($versionCode)" else versionName)
-                    AboutRow(stringResource(R.string.field_developer), stringResource(R.string.about_developer_value))
-                    val githubUrl = stringResource(R.string.about_github_url)
-                    AboutRow(
-                        stringResource(R.string.field_github),
-                        stringResource(R.string.about_github_value),
-                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(githubUrl))) } }
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    KMark(markSize = 84.dp)
+                    Spacer(Modifier.height(14.dp))
+                    Text(stringResource(R.string.about_app_name), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "v$versionName" + (versionCode?.let { " (Build $it)" } ?: ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        "Aplikasi untuk memantau, mengoptimalkan, dan mengelola perangkat Android kamu dengan mudah.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
                 }
             }
             item {
-                SectionCard(title = stringResource(R.string.about_section_status)) {
-                    val status = rootStatus
-                    MetricRow(
-                        stringResource(R.string.about_root_status),
-                        status?.let { if (it.isAvailable) it.provider.name else stringResource(R.string.about_root_unavailable) }
+                ListCard {
+                    KynoxListRow(
+                        "Pengembang", stringResource(R.string.about_developer_value), KynoxIcons.About,
+                        subtitleColor = MaterialTheme.colorScheme.primary, onClick = openGithub
+                    )
+                    KynoxListRow(
+                        "Status root",
+                        rootStatus?.let { if (it.isAvailable) it.provider.name else stringResource(R.string.about_root_unavailable) }
                             ?: stringResource(R.string.common_loading),
-                        status = status?.let { if (it.isAvailable) MetricStatus.GOOD else MetricStatus.DANGER }
+                        KynoxIcons.Root,
+                        subtitleColor = MaterialTheme.colorScheme.primary,
+                        trailing = {}
                     )
-                    if (status?.suVersion != null) {
-                        MetricRow(stringResource(R.string.about_su_version), status.suVersion)
-                    }
-                    MetricRow(stringResource(R.string.about_android_version), "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                    KynoxListRow(
+                        "Versi Android", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})", KynoxIcons.Device,
+                        subtitleColor = MaterialTheme.colorScheme.primary, trailing = {}
+                    )
+                    KynoxListRow(
+                        "GitHub", stringResource(R.string.about_github_value), KynoxIcons.Info,
+                        subtitleColor = MaterialTheme.colorScheme.primary, onClick = openGithub
+                    )
                 }
             }
             item {
@@ -111,7 +123,6 @@ fun AboutScreen(container: AppContainer, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-                Spacer(Modifier.height(4.dp))
             }
         }
     }

@@ -57,6 +57,7 @@ class DashboardViewModel(
             val intervalMs = settingsRepository.settingsFlow.first().refreshIntervalMs
             var tick = 0
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 // Checking whether the thermal engine is disabled costs an
                 // extra root shell call (see ThermalRepository.disableState),
                 // and that state rarely flips while this screen is open, so

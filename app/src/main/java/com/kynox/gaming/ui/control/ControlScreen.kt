@@ -123,6 +123,20 @@ private fun CpuControlTab(container: AppContainer) {
     val snapshot by viewModel.snapshot.collectAsState()
     val cores = snapshot?.cores ?: emptyList()
     val unknown = stringResource(R.string.common_unknown)
+    var pendingOffline by remember { mutableStateOf<Int?>(null) }
+
+    pendingOffline?.let { coreIndex ->
+        ConfirmDialog(
+            title = "Matikan core $coreIndex?",
+            message = "Mematikan core bisa membuat perangkat melambat atau hang. Core bisa dinyalakan lagi dari layar ini.",
+            confirmLabel = "Matikan",
+            onConfirm = {
+                pendingOffline = null
+                viewModel.setOnline(coreIndex, false)
+            },
+            onDismiss = { pendingOffline = null }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -149,7 +163,7 @@ private fun CpuControlTab(container: AppContainer) {
         }
         item {
             SectionCard(title = stringResource(R.string.control_core_control)) {
-                cores.forEach { core -> CoreRow(core, onOnlineToggle = { on -> viewModel.setOnline(core.core, on) }) }
+                cores.forEach { core -> CoreRow(core, onOnlineToggle = { on -> if (on) viewModel.setOnline(core.core, true) else pendingOffline = core.core }) }
             }
         }
     }

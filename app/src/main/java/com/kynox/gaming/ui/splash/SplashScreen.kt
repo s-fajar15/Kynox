@@ -1,5 +1,9 @@
 package com.kynox.gaming.ui.splash
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -43,9 +47,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
 
     Box(
-        Modifier.fillMaxSize().background(
-            Brush.radialGradient(listOf(Color(0xFF123D3B), MaterialTheme.colorScheme.background), radius = 900f)
-        ).alpha(exit.value),
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).alpha(exit.value),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -53,15 +55,18 @@ fun SplashScreen(onFinished: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.alpha(enter.value).scale(0.86f + 0.14f * enter.value)
         ) {
-            Box(Modifier.size(104.dp).clip(RoundedCornerShape(30.dp)).background(Color(0xFF0B171B)), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(76.dp).clip(CircleShape).background(KynoxAccentDark.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(104.dp).clip(RoundedCornerShape(30.dp)).background(Color(0xFF1E293B)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
                     KMark(markSize = 48.dp, color = KynoxAccentDark)
                 }
             }
             Text("Kynox", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(top = 22.dp))
-            Text("Monitor. Optimalkan. Kendalikan.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.2.sp, modifier = Modifier.padding(top = 5.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.padding(top = 28.dp)) {
-                repeat(3) { Box(Modifier.size(if (it == 1) 18.dp else 5.dp, 5.dp).clip(CircleShape).background(if (it == 1) KynoxAccentDark else KynoxAccentDark.copy(alpha = 0.35f))) }
+            Text("Optimasi. Monitoring. Kontrol.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.2.sp, modifier = Modifier.padding(top = 5.dp))
+            Box(
+                Modifier.padding(top = 32.dp).width(150.dp).height(3.dp).clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.outline)
+            ) {
+                Box(Modifier.fillMaxWidth(enter.value).fillMaxHeight().background(KynoxAccentDark))
             }
         }
     }

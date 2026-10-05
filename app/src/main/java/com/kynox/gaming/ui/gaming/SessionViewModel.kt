@@ -18,7 +18,9 @@ data class SessionUiState(
     val selected: InstalledGame? = null,
     val isRecording: Boolean = false,
     val hasReports: Boolean = false,
-    val overlayGranted: Boolean = true
+    val overlayGranted: Boolean = true,
+    val startedAtMs: Long = 0L,
+    val live: com.kynox.gaming.domain.model.LiveMetrics = com.kynox.gaming.domain.model.LiveMetrics()
 )
 
 class SessionViewModel(
@@ -37,7 +39,10 @@ class SessionViewModel(
         }
         viewModelScope.launch {
             sessionRepository.isRecording.collect { recording ->
-                _uiState.value = _uiState.value.copy(isRecording = recording)
+                _uiState.value = _uiState.value.copy(
+                    isRecording = recording,
+                    startedAtMs = if (recording) sessionRepository.recordingStartedAtMs() else 0L
+                )
                 if (!recording) {
                     _uiState.value = _uiState.value.copy(hasReports = sessionRepository.reportCount() > 0)
                 }
@@ -49,9 +54,16 @@ class SessionViewModel(
         viewModelScope.launch {
             overlayPermissionRepository.ensureGranted()
             while (true) {
+                com.kynox.gaming.core.utils.AppVisibility.awaitForeground()
                 _uiState.value = _uiState.value.copy(overlayGranted = overlayPermissionRepository.isGranted())
                 delay(2000)
             }
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            sessionRepository.live.collect { live -> _uiState.value = _uiState.value.copy(live = live) }
         }
     }
 

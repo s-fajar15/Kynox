@@ -130,7 +130,7 @@ object FpsReader {
         var renderRate: Float? = null
     }
 
-    private fun parse(dump: String, packageName: String, windowSeconds: Double, allowIdle: Boolean): FpsReading? {
+    internal fun parse(dump: String, packageName: String, windowSeconds: Double, allowIdle: Boolean): FpsReading? {
         val records = mutableListOf<Record>()
         var current: Record? = null
 

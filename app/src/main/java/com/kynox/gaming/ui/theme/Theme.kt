@@ -28,9 +28,9 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = KynoxAccentDark,
-    onPrimary = Color(0xFF04211D),
+    onPrimary = Color.White,
     primaryContainer = KynoxAccentContainerDark,
-    onPrimaryContainer = KynoxAccentDark,
+    onPrimaryContainer = KynoxOnSurfaceDark,
     secondary = KynoxAccentDark,
     background = KynoxBackgroundDark,
     onBackground = KynoxOnSurfaceDark,
@@ -58,7 +58,7 @@ private val LightExtendedColors = KynoxColorRoles(
 
 private val DarkExtendedColors = KynoxColorRoles(
     surfaceSunken = KynoxSurfaceSunkenDark,
-    surfaceRaised = KynoxSurfaceDark,
+    surfaceRaised = KynoxSurfaceRaisedDark,
     outlineStrong = KynoxOutlineStrongDark,
     onSurfaceFaint = KynoxOnSurfaceFaintDark,
     accentContainer = KynoxAccentContainerDark,

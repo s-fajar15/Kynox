@@ -77,6 +77,12 @@
     <string name="processes_memory">Memori : %1$s \u00B7 %2$s</string>
     <string name="processes_critical_warning">Proses sistem inti \u2014 tidak bisa dihentikan dari sini.</string>
     <string name="processes_kill">Hentikan proses</string>
+    <string name="processes_kill_confirm_title">Hentikan proses?</string>
+    <string name="processes_kill_confirm_message">%1$s (PID %2$d) akan dihentikan paksa lewat root. Data yang belum disimpan di aplikasi itu bisa hilang.</string>
+    <string name="processes_kill_ok">Proses dihentikan: %1$s</string>
+    <string name="processes_kill_failed">Proses %1$s belum berhenti. Mungkin dilindungi sistem atau segera dijalankan ulang.</string>
+    <string name="processes_empty">Tidak ada proses yang cocok.</string>
+    <string name="processes_pid_user">PID %1$d \u00B7 %2$s</string>
     <string name="processes_killing">Menghentikan\u2026</string>
     <string name="refresh_rate_hub_label">Refresh Rate per App</string>
     <string name="refresh_rate_hub_desc">Atur refresh rate layar untuk tiap aplikasi</string>
@@ -86,7 +92,7 @@
     <string name="refresh_rate_enable">Aktifkan pengalihan otomatis</string>
     <string name="refresh_rate_search_hint">Cari aplikasi\u2026</string>
     <string name="refresh_rate_default">Default (%1$d Hz)</string>
-    <string name="refresh_rate_min_android_warning">Setelan ini baru berfungsi di Android 11 ke atas.</string>
+    <string name="refresh_rate_min_android_warning">Berfungsi di semua ROM dan device: dengan root lewat pengaturan sistem, tanpa root lewat overlay (perlu izin di bawah).</string>
     <string name="device_info_title">Informasi Perangkat</string>
     <string name="section_system">Sistem</string>
     <string name="field_manufacturer">Produsen</string>
@@ -182,6 +188,14 @@
     <string name="btn_recheck_root">Cek Ulang Akses Root</string>
     <string name="logs_title">Log</string>
     <string name="cd_clear_logs">Hapus log</string>
+    <string name="logs_search_hint">Cari aksi, target, atau nilai\u2026</string>
+    <string name="logs_filter_all">Semua</string>
+    <string name="logs_filter_success">Berhasil</string>
+    <string name="logs_filter_failed">Gagal</string>
+    <string name="logs_count">%1$d dari %2$d entri</string>
+    <string name="logs_no_match">Tidak ada log yang cocok.</string>
+    <string name="logs_clear_title">Hapus semua log?</string>
+    <string name="logs_clear_message">Seluruh riwayat perubahan akan dihapus permanen dan tidak bisa dikembalikan.</string>
     <string name="logs_empty">Belum ada perubahan yang diterapkan.</string>
     <string name="log_value_arrow">%1$s → %2$s</string>
     <string name="settings_title">Pengaturan</string>
@@ -322,7 +336,6 @@
     <string name="report_export_failed">Gagal menyimpan laporan</string>
     <string name="report_pdf_saved">PDF tersimpan \u00B7 Documents/Kynox</string>
     <string name="report_csv_saved">CSV tersimpan \u00B7 Documents/Kynox</string>
-    <string name="report_highlights_title">Sorotan sesi</string>
     <string name="report_peak_cpu_temp">Puncak suhu CPU</string>
     <string name="report_peak_battery_temp">Puncak suhu baterai</string>
     <string name="report_lowest_fps">FPS terendah</string>
@@ -464,6 +477,13 @@
     <string name="notif_profile_applied_title">Profil diterapkan</string>
     <string name="notif_profile_applied_text">Profil %1$s diterapkan</string>
     <string name="notif_profile_applied_text_for_game">Profil %1$s diterapkan untuk %2$s</string>
+    <string name="notif_automation_applied_text">%1$s: %2$s</string>
+    <string name="thermal_source_cpu">Suhu CPU</string>
+    <string name="thermal_source_battery">Suhu baterai</string>
+    <string name="notif_restored_title">Pengaturan dikembalikan</string>
+    <string name="notif_restored_text">Pengaturan sebelum %1$s sudah dikembalikan</string>
+    <string name="notif_detail_profile">Profil %1$s</string>
+    <string name="notif_detail_refresh">%1$d Hz</string>
     <string name="notif_thermal_warning_title">Peringatan suhu</string>
     <string name="notif_thermal_warning_text">%1$s mencapai %2$.1f°C</string>
 </resources>

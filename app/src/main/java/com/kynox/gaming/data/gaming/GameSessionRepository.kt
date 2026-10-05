@@ -45,6 +45,9 @@ class GameSessionRepository(
     @Volatile private var resolution: String? = null
     @Volatile private var resolutionAttempts: Int = 0
 
+    /** Wall-clock start of the current recording; only meaningful while [isRecording] is true. */
+    fun recordingStartedAtMs(): Long = startedAtMs
+
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 

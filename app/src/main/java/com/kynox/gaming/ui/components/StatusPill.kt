@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kynox.gaming.ui.theme.KynoxShapes
@@ -24,7 +25,7 @@ fun StatusPill(text: String, color: Color, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .widthIn(max = 220.dp)
-            .background(color.copy(alpha = 0.12f), KynoxShapes.chip)
+            .background(color.copy(alpha = 0.16f).compositeOver(MaterialTheme.colorScheme.surface), KynoxShapes.chip)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Box(Modifier.size(6.dp).background(color, CircleShape))

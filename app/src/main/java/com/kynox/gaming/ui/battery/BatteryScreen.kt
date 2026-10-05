@@ -65,20 +65,21 @@ fun BatteryScreen(container: AppContainer, onBack: () -> Unit) {
 
                 // Headline: capacity + charging status up front, like the reference mockup's 82% hero.
                 HighlightPanel {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            info?.capacityPercent?.let { "$it%" } ?: unknown,
+                            info?.capacityPercent?.let { "$it%" } ?: "--",
                             style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
                         )
-                        StatusPill(text = info?.chargingStatus ?: unknown, color = StatusGood)
+                        StatusPill(text = info?.chargingStatus ?: stringResource(R.string.common_loading), color = StatusGood)
                     }
-                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(info?.powerWatts?.let { "%.1f W".format(it) } ?: unknown, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(info?.voltageMilliVolts?.let { "%.1f V".format(it / 1000f) } ?: unknown, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(info?.currentMicroAmps?.let { "${it / 1000} mA" } ?: unknown, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(info?.temperatureCelsius?.let { "%.0f°C".format(it) } ?: unknown, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HeroStat("Daya", info?.powerWatts?.let { "%.1f W".format(it) } ?: "--", Modifier.weight(1f))
+                        HeroStat("Tegangan", info?.voltageMilliVolts?.let { "%.2f V".format(it / 1000f) } ?: "--", Modifier.weight(1f))
+                        HeroStat("Arus", info?.currentMicroAmps?.let { "${it / 1000} mA" } ?: "--", Modifier.weight(1f))
+                        HeroStat("Suhu", info?.temperatureCelsius?.let { "%.0f°C".format(it) } ?: "--", Modifier.weight(1f))
                     }
                 }
 
@@ -264,6 +265,14 @@ fun BatteryScreen(container: AppContainer, onBack: () -> Unit) {
             onConfirm = { pendingAdvanced = null; viewModel.setAdvancedEnabled(true) },
             onDismiss = { pendingAdvanced = null }
         )
+    }
+}
+
+@Composable
+private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 

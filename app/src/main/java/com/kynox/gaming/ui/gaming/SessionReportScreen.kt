@@ -1,5 +1,13 @@
 package com.kynox.gaming.ui.gaming
 
+import com.kynox.gaming.ui.theme.KynoxIcons
+import com.kynox.gaming.ui.components.StatusPill
+import com.kynox.gaming.ui.components.KynoxGauge
+import com.kynox.gaming.ui.components.kynoxCard
+import com.kynox.gaming.ui.components.IconTile
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -70,6 +79,7 @@ import com.kynox.gaming.ui.theme.StatusGood
 import com.kynox.gaming.ui.theme.StatusWarning
 import kotlin.math.max
 import kotlinx.coroutines.launch
+import com.kynox.gaming.ui.theme.KynoxShapes
 
 private enum class ExportKind { PNG, PDF, CSV }
 
@@ -170,10 +180,10 @@ fun SessionReportScreen(container: AppContainer, sessionId: Long, onBack: () -> 
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)
             ) {
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         ReportContent(current)
                     }
                 }
@@ -198,7 +208,7 @@ private fun SessionFullReportCapture(report: SessionReport) {
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.background)
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             ReportContent(report)
         }
@@ -211,14 +221,15 @@ private fun ReportContent(report: SessionReport) {
 
     ReportHeader(report)
     VerdictPanel(report)
-    HighlightsSection(report)
-    ThermalPerformancePanel(report)
+    SummaryTiles(report)
 
     if (report.fpsSupported) {
-        DropMapSection(report, totalMs)
         FpsChartSection(report, totalMs)
+        DropMapSection(report, totalMs)
         HistogramSection(report)
     }
+
+    ThermalPerformancePanel(report)
 
     ChartSection(
         title = stringResource(R.string.report_chart_cpu_temp),
@@ -261,62 +272,83 @@ private fun ReportContent(report: SessionReport) {
 
 @Composable
 private fun ReportHeader(report: SessionReport) {
-    val subtitle = listOfNotNull(
-        formatDateTime(report.startedAtMs),
-        formatDuration(report.durationMs),
-        report.resolution
-    ).joinToString(" \u00B7 ")
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        AppIconImage(report.packageName, 52.dp)
-        Column(Modifier.weight(1f).padding(start = 14.dp)) {
-            Text(
-                report.gameLabel,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 2
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    Column(Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AppIconImage(report.packageName, 48.dp)
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(
+                    report.gameLabel,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2
+                )
+                Text(
+                    formatDateTime(report.startedAtMs),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth()) {
+            HeaderMeta("Durasi", formatDuration(report.durationMs), Modifier.weight(1f))
+            report.resolution?.let { HeaderMeta("Resolusi", it, Modifier.weight(1.2f)) }
+            HeaderMeta("Sampel", report.samples.size.toString(), Modifier.weight(0.8f))
         }
     }
 }
 
-/** The moments worth remembering from a session: hottest points, worst frame rate, and what it cost in battery. */
+/** Label kecil di atas nilai, tanpa kotak: lebar nilai (mis. 1080x2400) tidak lagi terpotong. */
 @Composable
-private fun HighlightsSection(report: SessionReport) {
-    val rows = mutableListOf<Pair<String, String>>()
-    val peakCpu = report.maxCpuTemp
-    if (peakCpu != null) {
-        val at = report.peakCpuTempAtMs?.let { formatAxisTime(it) }
-        rows += stringResource(R.string.report_peak_cpu_temp) to
-            (if (at != null) stringResource(R.string.report_value_at_time, "%.1f\u00B0C".format(peakCpu), at) else "%.1f\u00B0C".format(peakCpu))
+private fun HeaderMeta(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
-    val peakBattery = report.maxBatteryTemp
-    if (peakBattery != null) {
-        val at = report.peakBatteryTempAtMs?.let { formatAxisTime(it) }
-        rows += stringResource(R.string.report_peak_battery_temp) to
-            (if (at != null) stringResource(R.string.report_value_at_time, "%.1f\u00B0C".format(peakBattery), at) else "%.1f\u00B0C".format(peakBattery))
-    }
-    val lowestFps = report.minFps
-    if (report.fpsSupported && lowestFps != null) {
-        val at = report.lowestFpsAtMs?.let { formatAxisTime(it) }
-        rows += stringResource(R.string.report_lowest_fps) to
-            (if (at != null) stringResource(R.string.report_value_at_time, "%.0f FPS".format(lowestFps), at) else "%.0f FPS".format(lowestFps))
-    }
-    val startBattery = report.startBatteryPercent
-    val endBattery = report.endBatteryPercent
-    if (startBattery != null && endBattery != null) {
-        rows += stringResource(R.string.report_battery_used) to "$startBattery% \u2192 $endBattery%"
-    }
-    report.drainPercentPerHour?.let { rows += stringResource(R.string.report_drain_rate) to "%.1f %%/jam".format(it) }
-    report.drainMahPerHour?.let { rows += stringResource(R.string.report_drain_rate_mah) to "%.0f mAh/jam".format(it) }
-    if (rows.isEmpty()) return
+}
 
-    SectionCard(title = stringResource(R.string.report_highlights_title)) {
-        rows.forEach { (label, value) -> MetricRow(label, value) }
+private data class SummaryTile(val label: String, val value: String, val sub: String? = null)
+
+/** Angka utama sesi dalam kartu 2 kolom: suhu puncak (dengan waktunya), daya, dan pemakaian baterai. */
+@Composable
+private fun SummaryTiles(report: SessionReport) {
+    val tiles = mutableListOf<SummaryTile>()
+    report.maxCpuTemp?.let {
+        tiles += SummaryTile("Suhu CPU maks", "%.0f\u00B0C".format(it), report.peakCpuTempAtMs?.let { at -> "di ${formatAxisTime(at)}" })
+    }
+    report.maxBatteryTemp?.let {
+        tiles += SummaryTile("Suhu baterai maks", "%.0f\u00B0C".format(it), report.peakBatteryTempAtMs?.let { at -> "di ${formatAxisTime(at)}" })
+    }
+    report.avgPowerWatts?.let { tiles += SummaryTile("Daya rata-rata", "%.1f W".format(it)) }
+    val start = report.startBatteryPercent
+    val end = report.endBatteryPercent
+    if (start != null && end != null) {
+        val drain = listOfNotNull(
+            report.drainPercentPerHour?.let { "%.1f %%/jam".format(it) },
+            report.drainMahPerHour?.let { "%.0f mAh/jam".format(it) }
+        ).joinToString(" \u00B7 ").ifEmpty { null }
+        tiles += SummaryTile("Baterai terpakai", "$start% \u2192 $end%", drain)
+    }
+    if (tiles.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        tiles.chunked(2).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                rowItems.forEach { tile ->
+                    Column(
+                        Modifier.weight(1f).heightIn(min = 92.dp).kynoxCard(KynoxShapes.section).padding(14.dp)
+                    ) {
+                        Text(tile.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Spacer(Modifier.height(4.dp))
+                        Text(tile.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        if (tile.sub != null) {
+                            Text(tile.sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        }
+                    }
+                }
+                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
     }
 }
 
@@ -329,7 +361,7 @@ private fun VerdictPanel(report: SessionReport) {
         fpsValues.count { it >= avg * MINOR_DROP_RATIO } * 100f / fpsValues.size
     } else null
 
-    HighlightPanel {
+    Column(Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(18.dp)) {
         if (!report.fpsSupported || avg == null) {
             Text(
                 stringResource(R.string.report_fps_not_supported),
@@ -343,24 +375,42 @@ private fun VerdictPanel(report: SessionReport) {
                 stable >= 80f -> StatusWarning
                 else -> StatusDanger
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                Readout(
-                    value = "%.0f".format(avg),
-                    unit = "FPS",
-                    label = stringResource(R.string.report_stat_avg),
-                    valueStyle = MaterialTheme.typography.displayLarge,
-                    valueColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
-                )
-                Readout(
-                    value = stable?.let { "%.0f".format(it) } ?: "--",
-                    unit = "%",
-                    label = stringResource(R.string.report_stat_stable),
-                    valueColor = stableColor
-                )
+            val verdictLabel = when {
+                stable == null -> "--"
+                stable >= 95f -> "Sangat stabil"
+                stable >= 80f -> "Cukup stabil"
+                else -> "Tidak stabil"
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                KynoxGauge(
+                    progress = (stable ?: 0f) / 100f,
+                    modifier = Modifier.size(156.dp),
+                    strokeWidth = 12.dp,
+                    color = stableColor
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("%.0f".format(avg), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+                        Text("FPS rata-rata", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    StatusPill(verdictLabel, stableColor)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stable?.let { "%.0f%%".format(it) } ?: "--",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = stableColor
+                    )
+                    Text(
+                        stringResource(R.string.report_stat_stable),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (stable != null) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     stringResource(
                         when {
@@ -374,8 +424,6 @@ private fun VerdictPanel(report: SessionReport) {
                 )
             }
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
-            Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth()) {
                 StatColumn(stringResource(R.string.report_stat_max), report.maxFps, Modifier.weight(1f))
                 VerticalRule()
@@ -395,10 +443,10 @@ private fun VerdictPanel(report: SessionReport) {
 
 @Composable
 private fun VerticalRule() {
-    Box(Modifier.width(1.dp).height(44.dp).background(MaterialTheme.colorScheme.outline))
+    Spacer(Modifier.width(8.dp))
 }
 
-/** Suhu CPU/baterai (min/avg/maks) plus frekuensi & daya rata-rata -- everything the individual charts below show, at a glance. */
+/** Suhu CPU/baterai (min/rata-rata/maks) dalam satu tabel ringkas, plus frekuensi & daya rata-rata. */
 @Composable
 private fun ThermalPerformancePanel(report: SessionReport) {
     val hasCpuTemp = report.avgCpuTemp != null
@@ -407,49 +455,62 @@ private fun ThermalPerformancePanel(report: SessionReport) {
     if (!hasCpuTemp && !hasBatteryTemp && !hasFreqOrPower) return
 
     SectionCard(title = stringResource(R.string.report_thermal_panel_title)) {
-        if (hasCpuTemp) {
-            GroupLabel(stringResource(R.string.report_group_cpu_temp))
-            Row(Modifier.fillMaxWidth()) {
-                StatColumn(stringResource(R.string.report_stat_min), report.minCpuTemp, Modifier.weight(1f))
-                VerticalRule()
-                StatColumn(stringResource(R.string.report_stat_avg), report.avgCpuTemp, Modifier.weight(1f))
-                VerticalRule()
-                StatColumn(stringResource(R.string.report_stat_max), report.maxCpuTemp, Modifier.weight(1f))
+        if (hasCpuTemp || hasBatteryTemp) {
+            TableRow(
+                "",
+                stringResource(R.string.report_stat_min),
+                stringResource(R.string.report_stat_avg),
+                stringResource(R.string.report_stat_max),
+                header = true
+            )
+            if (hasCpuTemp) {
+                TableRow(
+                    stringResource(R.string.report_group_cpu_temp),
+                    tempCell(report.minCpuTemp), tempCell(report.avgCpuTemp), tempCell(report.maxCpuTemp)
+                )
             }
-            Spacer(Modifier.height(16.dp))
-        }
-        if (hasBatteryTemp) {
-            GroupLabel(stringResource(R.string.report_group_battery_temp))
-            Row(Modifier.fillMaxWidth()) {
-                StatColumn(stringResource(R.string.report_stat_min), report.minBatteryTemp, Modifier.weight(1f))
-                VerticalRule()
-                StatColumn(stringResource(R.string.report_stat_avg), report.avgBatteryTemp, Modifier.weight(1f))
-                VerticalRule()
-                StatColumn(stringResource(R.string.report_stat_max), report.maxBatteryTemp, Modifier.weight(1f))
+            if (hasBatteryTemp) {
+                TableRow(
+                    stringResource(R.string.report_group_battery_temp),
+                    tempCell(report.minBatteryTemp), tempCell(report.avgBatteryTemp), tempCell(report.maxBatteryTemp)
+                )
             }
-            Spacer(Modifier.height(16.dp))
         }
         if (hasFreqOrPower) {
+            if (hasCpuTemp || hasBatteryTemp) Spacer(Modifier.height(16.dp))
             GroupLabel(stringResource(R.string.report_group_performance))
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatColumnText(
                     stringResource(R.string.report_stat_cpu_freq),
                     report.avgCpuFreqMhz?.let { "%.0f MHz".format(it) } ?: "--",
                     Modifier.weight(1f)
                 )
-                VerticalRule()
                 StatColumnText(
                     stringResource(R.string.report_stat_gpu_freq),
                     report.avgGpuFreqMhz?.let { "%.0f MHz".format(it) } ?: "--",
                     Modifier.weight(1f)
                 )
-                VerticalRule()
                 StatColumnText(
                     stringResource(R.string.report_stat_power),
                     report.avgPowerWatts?.let { "%.1f W".format(it) } ?: "--",
                     Modifier.weight(1f)
                 )
             }
+        }
+    }
+}
+
+private fun tempCell(value: Float?): String = value?.let { "%.1f\u00B0".format(it) } ?: "--"
+
+/** Satu baris tabel: label di kiri, tiga kolom angka rata kanan. */
+@Composable
+private fun TableRow(label: String, a: String, b: String, c: String, header: Boolean = false) {
+    val color = if (header) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+    val style = if (header) MaterialTheme.typography.labelSmall else MaterialTheme.typography.titleSmall
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.weight(1.3f))
+        listOf(a, b, c).forEach { cell ->
+            Text(cell, style = style, color = color, maxLines = 1, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -471,12 +532,18 @@ private fun StatColumn(label: String, value: Float?, modifier: Modifier = Modifi
 
 @Composable
 private fun StatColumnText(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier.padding(horizontal = 12.dp)) {
+    Column(
+        modifier.clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         Text(
             value,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
         )
     }
 }

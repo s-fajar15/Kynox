@@ -18,6 +18,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.kynox.gaming.ui.components.ConfirmDialog
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -43,6 +47,20 @@ fun CpuScreen(container: AppContainer, onBack: () -> Unit) {
     val viewModel: CpuViewModel = viewModel(factory = GenericViewModelFactory { CpuViewModel(container.cpuRepository) })
     val snapshot by viewModel.snapshot.collectAsState()
     val unknownFreq = stringResource(R.string.common_unknown)
+    var pendingOffline by remember { mutableStateOf<Int?>(null) }
+
+    pendingOffline?.let { coreIndex ->
+        ConfirmDialog(
+            title = "Matikan core $coreIndex?",
+            message = "Mematikan core bisa membuat perangkat melambat atau hang. Core bisa dinyalakan lagi dari layar ini.",
+            confirmLabel = "Matikan",
+            onConfirm = {
+                pendingOffline = null
+                viewModel.setOnline(coreIndex, false)
+            },
+            onDismiss = { pendingOffline = null }
+        )
+    }
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.cpu_manager_title), onBack = onBack) }) { padding ->
         LazyColumn(
@@ -68,7 +86,7 @@ fun CpuScreen(container: AppContainer, onBack: () -> Unit) {
                 CoreCard(
                     core,
                     onGovernorSelected = { governor -> viewModel.setGovernor(core.core, governor) },
-                    onOnlineToggle = { online -> viewModel.setOnline(core.core, online) }
+                    onOnlineToggle = { online -> if (online) viewModel.setOnline(core.core, true) else pendingOffline = core.core }
                 )
             }
         }

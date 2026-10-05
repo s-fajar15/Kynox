@@ -45,10 +45,16 @@ class BatteryInfoReader(private val context: Context) {
         val healthInt = intent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
         val health = describeHealth(healthInt)
 
-        val cycleCount = if (Build.VERSION.SDK_INT >= 34) {
-            intent?.getIntExtra("android.os.extra.CYCLE_COUNT", -1)?.takeIf { it >= 0 }
-        } else null
-            ?: SysfsAccess.readDirect("/sys/class/power_supply/battery/cycle_count")?.toIntOrNull()
+        val cycleCount = (if (Build.VERSION.SDK_INT >= 34) {
+            intent?.getIntExtra("android.os.extra.CYCLE_COUNT", -1)?.takeIf { it > 0 }
+        } else null)
+            ?: listOf(
+                "/sys/class/power_supply/battery/cycle_count",
+                "/sys/class/power_supply/bms/cycle_count",
+                "/sys/class/power_supply/battery/battery_cycle"
+            ).firstNotNullOfOrNull { path ->
+                SysfsAccess.readDirect(path)?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
+            }
 
         val power = if (voltageMv != null && currentUa != null) {
             kotlin.math.abs(voltageMv.toLong() * currentUa.toLong()) / 1_000_000_000f
@@ -70,24 +76,24 @@ class BatteryInfoReader(private val context: Context) {
 
     private fun describeStatus(status: Int, plugged: Int): String = when (status) {
         BatteryManager.BATTERY_STATUS_CHARGING -> when (plugged) {
-            BatteryManager.BATTERY_PLUGGED_USB -> "Charging (USB)"
-            BatteryManager.BATTERY_PLUGGED_AC -> "Charging (AC)"
-            BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Charging (Wireless)"
-            else -> "Charging"
+            BatteryManager.BATTERY_PLUGGED_USB -> "Mengisi daya (USB)"
+            BatteryManager.BATTERY_PLUGGED_AC -> "Mengisi daya (AC)"
+            BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Mengisi daya (nirkabel)"
+            else -> "Mengisi daya"
         }
-        BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
-        BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not charging"
-        BatteryManager.BATTERY_STATUS_FULL -> "Full"
-        else -> "Unknown"
+        BatteryManager.BATTERY_STATUS_DISCHARGING -> "Baterai terpakai"
+        BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Tidak mengisi"
+        BatteryManager.BATTERY_STATUS_FULL -> "Penuh"
+        else -> "Tidak diketahui"
     }
 
     private fun describeHealth(health: Int): String = when (health) {
-        BatteryManager.BATTERY_HEALTH_GOOD -> "Good"
-        BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Overheat"
-        BatteryManager.BATTERY_HEALTH_DEAD -> "Dead"
-        BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over voltage"
-        BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Unspecified failure"
-        BatteryManager.BATTERY_HEALTH_COLD -> "Cold"
-        else -> "Unknown"
+        BatteryManager.BATTERY_HEALTH_GOOD -> "Baik"
+        BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Terlalu panas"
+        BatteryManager.BATTERY_HEALTH_DEAD -> "Rusak"
+        BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Tegangan berlebih"
+        BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Gangguan tak dikenal"
+        BatteryManager.BATTERY_HEALTH_COLD -> "Terlalu dingin"
+        else -> "Tidak diketahui"
     }
 }

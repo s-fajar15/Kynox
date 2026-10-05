@@ -1,5 +1,11 @@
 package com.kynox.gaming.ui.theme
 
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.DoNotDisturbOn
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -40,6 +46,12 @@ object KynoxIcons {
     val Control: ImageVector = Icons.Outlined.Tune
     val Device: ImageVector = Icons.Outlined.Smartphone
     val Settings: ImageVector = Icons.Outlined.Settings
+    val DarkMode: ImageVector = Icons.Outlined.DarkMode
+    val PlayArrow: ImageVector = Icons.Outlined.PlayArrow
+    val Shield: ImageVector = Icons.Outlined.Shield
+    val DoNotDisturb: ImageVector = Icons.Outlined.DoNotDisturbOn
+    val Brightness: ImageVector = Icons.Outlined.WbSunny
+    val CheckOk: ImageVector = Icons.Outlined.CheckCircle
 
     // Subsystems
     val Cpu: ImageVector = Icons.Outlined.Memory

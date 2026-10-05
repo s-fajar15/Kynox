@@ -86,23 +86,45 @@ class MonitorService : Service() {
             recorder.setRunning(true)
             val powerManager = getSystemService(PowerManager::class.java)
             while (isActive) {
+                val settings = container.settingsRepository.settingsFlow.first()
                 try {
                     recorder.sampleOnce()
+                    if (settings.historyEnabled) {
+                        recorder.recordHistory(settings.historyIntervalSec, settings.historyRetentionHours)
+                    }
+                    checkThermal(container, settings)
                 } catch (c: CancellationException) {
                     throw c
                 } catch (t: Throwable) {
                     Logger.e(TAG, "Monitor sample failed, skipping this tick", t)
                 }
                 val interactive = powerManager?.isInteractive != false
-                val interval = if (interactive) {
-                    container.settingsRepository.settingsFlow.first().refreshIntervalMs
-                } else {
-                    SCREEN_OFF_INTERVAL_MS
-                }
+                val interval = if (interactive) settings.refreshIntervalMs else SCREEN_OFF_INTERVAL_MS
                 delay(interval)
             }
         }
         return START_STICKY
+    }
+
+    /**
+     * Peringatan suhu berdasarkan ambang pilihan pengguna. Mode "otomatis"
+     * butuh titik trip per zona, jadi dibiarkan ke GameDetectionService.
+     */
+    private fun checkThermal(container: com.kynox.gaming.AppContainer, settings: com.kynox.gaming.data.settings.AppSettings) {
+        if (!settings.notifyThermal || settings.thermalWarnThresholdC <= 0) return
+        val sample = container.monitorRecorder.samples.value.lastOrNull() ?: return
+        val threshold = settings.thermalWarnThresholdC.toFloat()
+        val cooldownMs = settings.notifyCooldownMin * 60_000L
+        sample.cpuTemp?.let { temp ->
+            if (container.thermalWarner.shouldWarn("monitor:cpu", temp, threshold, cooldownMs)) {
+                GameEventNotifier.notifyThermalWarning(applicationContext, getString(R.string.thermal_source_cpu), temp)
+            }
+        }
+        sample.batteryTemp?.let { temp ->
+            if (container.thermalWarner.shouldWarn("monitor:battery", temp, threshold, cooldownMs)) {
+                GameEventNotifier.notifyThermalWarning(applicationContext, getString(R.string.thermal_source_battery), temp)
+            }
+        }
     }
 
     /**
@@ -170,6 +192,7 @@ class MonitorService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.MONITOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
+            .setColor(0xFF2F6FED.toInt())
             .setContentTitle(getString(R.string.notif_monitor_title))
             .setContentText(getString(R.string.notif_monitor_text))
             .setOngoing(false)

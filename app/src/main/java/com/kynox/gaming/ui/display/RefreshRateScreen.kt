@@ -1,6 +1,21 @@
 package com.kynox.gaming.ui.display
 
+import com.kynox.gaming.ui.components.startActivitySafely
 import androidx.compose.foundation.layout.Column
+import com.kynox.gaming.ui.components.SectionCard
+import com.kynox.gaming.ui.components.KOutlinedButton
+import com.kynox.gaming.data.gaming.ForegroundAppReader
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.DisposableEffect
+import android.provider.Settings
+import android.net.Uri
+import android.content.Intent
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,6 +82,50 @@ fun RefreshRateScreen(container: AppContainer, onBack: () -> Unit) {
                     modifier = Modifier.weight(1f)
                 )
                 Switch(checked = state.enabled, onCheckedChange = viewModel::setEnabled)
+            }
+            // Tanpa root: butuh dua izin biasa agar tetap berfungsi di semua ROM/device.
+            var tick by remember { mutableIntStateOf(0) }
+            var rootOk by remember { mutableStateOf<Boolean?>(null) }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) tick++ }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            LaunchedEffect(tick) {
+                rootOk = try { container.rootRepository.current().isAvailable } catch (_: Throwable) { false }
+            }
+            val canOverlay = remember(tick) { Settings.canDrawOverlays(context) }
+            val usageOk = remember(tick) { ForegroundAppReader.hasUsageAccess(context) }
+            if (rootOk == false && (!canOverlay || !usageOk)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    SectionCard("Mode tanpa root") {
+                        Text(
+                            "Root tidak terdeteksi. Beri dua izin ini agar refresh rate per aplikasi tetap berjalan.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (!canOverlay) {
+                            KOutlinedButton(
+                                onClick = {
+                                    context.startActivitySafely(
+                                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                            ) { Text("Izinkan tampil di atas aplikasi lain") }
+                        }
+                        if (!usageOk) {
+                            KOutlinedButton(
+                                onClick = {
+                                    context.startActivitySafely(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                            ) { Text("Izinkan akses penggunaan aplikasi") }
+                        }
+                    }
+                }
             }
             if (state.enabled) {
                 val appliedHz = state.appliedHz

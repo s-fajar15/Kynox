@@ -5,8 +5,12 @@ import com.kynox.gaming.core.root.RootExecutor
 import com.kynox.gaming.core.root.RootExecutorImpl
 import com.kynox.gaming.core.sysfs.CapabilityEngine
 import com.kynox.gaming.data.backup.BackupStore
+import com.kynox.gaming.data.backup.ConfigBackupManager
 import com.kynox.gaming.data.battery.BatteryRepository
+import com.kynox.gaming.data.automation.AutomationCoordinator
 import com.kynox.gaming.data.automation.AutomationRepository
+import com.kynox.gaming.data.notify.NotifyThrottle
+import com.kynox.gaming.data.notify.ThermalWarner
 import com.kynox.gaming.data.network.NetworkRepository
 
 import com.kynox.gaming.data.cpu.CpuRepository
@@ -52,12 +56,20 @@ class AppContainer(context: Context) {
     val gameLibraryRepository = GameLibraryRepository(context, backupStore)
     val gamingModeRepository = GamingModeRepository(profileRepository, gameLibraryRepository, backupStore)
     val overlayPermissionRepository = OverlayPermissionRepository(context, rootExecutor, logRepository)
-    val foregroundAppReader = ForegroundAppReader(rootExecutor)
+    val foregroundAppReader = ForegroundAppReader(rootExecutor, context)
     val gameDetectionRepository = GameDetectionRepository(
         rootExecutor, foregroundAppReader, gameLibraryRepository, gamingModeRepository, backupStore, logRepository
     )
     val gameSessionRepository = GameSessionRepository(context, rootExecutor, cpuRepository, gpuRepository, thermalRepository, batteryRepository)
     val processRepository = com.kynox.gaming.data.process.ProcessRepository(rootExecutor)
+    val cleanerRepository = com.kynox.gaming.data.cleaner.CleanerRepository(context, rootExecutor, logRepository)
     val refreshRateRepository = com.kynox.gaming.data.display.RefreshRateRepository(context, rootExecutor, backupStore, logRepository)
+    val automationCoordinator = AutomationCoordinator(automationRepository, profileRepository, refreshRateRepository, backupStore, logRepository)
+    val notifyThrottle = NotifyThrottle()
+    val configBackupManager = ConfigBackupManager(
+        backupStore, settingsRepository, automationRepository, logRepository,
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+    )
+    val thermalWarner = ThermalWarner(notifyThrottle)
     val debloatRepository = com.kynox.gaming.data.debloat.DebloatRepository(context, rootExecutor, logRepository)
 }

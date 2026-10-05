@@ -1,5 +1,6 @@
 package com.kynox.gaming.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.kynox.gaming.ui.theme.kynoxColors
 
 @Composable
 fun DropdownSelector(
@@ -31,10 +33,14 @@ fun DropdownSelector(
             Text(if (label.isBlank()) selected else "$label: $selected")
             Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.padding(start = 4.dp))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(MaterialTheme.kynoxColors.surfaceSunken)
+        ) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = { Text(option, color = if (option == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) },
                     onClick = {
                         expanded = false
                         onSelected(option)

@@ -2,6 +2,6 @@
     <style name="Theme.Kynox" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">#0B0D0F</item>
+        <item name="android:windowBackground">#0F172A</item>
     </style>
 </resources>

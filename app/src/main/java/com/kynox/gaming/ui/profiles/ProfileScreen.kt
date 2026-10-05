@@ -42,6 +42,7 @@ import com.kynox.gaming.AppContainer
 import com.kynox.gaming.R
 import com.kynox.gaming.domain.model.ProfileParamResult
 import com.kynox.gaming.domain.model.ProfileType
+import com.kynox.gaming.ui.components.ConfirmDialog
 import com.kynox.gaming.ui.components.DetailTopBar
 import com.kynox.gaming.ui.components.GenericViewModelFactory
 import com.kynox.gaming.ui.components.HighlightPanel
@@ -67,6 +68,21 @@ fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
     )
     val state by viewModel.uiState.collectAsState()
     var showThermalPolicyDialog by remember { mutableStateOf(false) }
+    var pendingProfile by remember { mutableStateOf<ProfileInfo?>(null) }
+    val appSettings by container.settingsRepository.settingsFlow.collectAsState(initial = null)
+
+    pendingProfile?.let { target ->
+        ConfirmDialog(
+            title = "Terapkan profil " + stringResource(target.labelRes) + "?",
+            message = "Governor dan frekuensi CPU/GPU akan diubah lewat root. Hasil tiap parameter ditampilkan setelah diterapkan, dan kamu bisa kembali lewat Reset ke Kondisi Awal.",
+            confirmLabel = stringResource(R.string.btn_apply_profile),
+            onConfirm = {
+                pendingProfile = null
+                viewModel.apply(target.type)
+            },
+            onDismiss = { pendingProfile = null }
+        )
+    }
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.profiles_title), onBack = onBack) }) { padding ->
         LazyColumn(
@@ -106,7 +122,7 @@ fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
                             isActive = state.activeProfile == info.type,
                             busy = state.busy,
                             customAvailable = info.type != ProfileType.CUSTOM || state.hasCustomSaved,
-                            onApply = { viewModel.apply(info.type) }
+                            onApply = { if (appSettings?.requireConfirmation == false) viewModel.apply(info.type) else pendingProfile = info }
                         )
                         if (index < presetInfo.lastIndex) KDivider()
                     }
