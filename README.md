@@ -92,13 +92,24 @@ Kotlin dan Jetpack Compose (Material 3), `minSdk` 26, `targetSdk` 34.
 
 s.fajar
 
----
+## Copyright and Trademarks
 
-Copyright and Trademarks
+Copyright © 2026 s.fajar.
 
-Copyright © 2026 Kynox Contributors.
-Kynox is open-source software licensed under the Apache License, Version 2.0. You may use, modify, and redistribute the source code in accordance with the terms of this license.
-The Kynox name, logo, and branding are not covered by the software license. Use of these assets must not imply official affiliation, endorsement, or that a modified or redistributed version is the official Kynox project without authorization.
-Redistributions must comply with the applicable license terms, including the preservation of required copyright and license notices.
-For the full license terms, see the "LICENSE" file.
-Open source code. Protected identity.
+Kynox is open-source software licensed under
+the Apache License, Version 2.0. You may use,
+modify, and redistribute the source code in
+accordance with the terms of this license.
+
+The Kynox name, logo, and branding are not
+covered by the software license. Their use
+must not imply official affiliation or
+endorsement without authorization.
+
+Redistributions must comply with the applicable
+license terms, including the preservation of
+required copyright and license notices.
+
+For the full license terms, see the `LICENSE` file.
+
+**Open source code. Protected identity.**
