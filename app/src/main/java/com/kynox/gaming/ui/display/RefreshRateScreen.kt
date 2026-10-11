@@ -1,8 +1,10 @@
 package com.kynox.gaming.ui.display
 
+import com.kynox.gaming.ui.components.groupedItems
 import com.kynox.gaming.ui.components.startActivitySafely
 import androidx.compose.foundation.layout.Column
 import com.kynox.gaming.ui.components.SectionCard
+import com.kynox.gaming.ui.components.kynoxCard
 import com.kynox.gaming.ui.components.KOutlinedButton
 import com.kynox.gaming.data.gaming.ForegroundAppReader
 import androidx.lifecycle.LifecycleEventObserver
@@ -60,7 +62,10 @@ fun RefreshRateScreen(container: AppContainer, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(state.enabled) {
+    LaunchedEffect(state.enabled, state.loading) {
+        // Tunggu status tersimpan terbaca dulu. Sebelumnya nilai awal "false" langsung
+        // memanggil stop() saat layar dibuka, mematikan layanan yang sudah berjalan.
+        if (state.loading) return@LaunchedEffect
         if (state.enabled) RefreshRateService.start(context) else RefreshRateService.stop(context)
         if (state.enabled) {
             // Give the service a moment to actually apply before checking --
@@ -71,39 +76,45 @@ fun RefreshRateScreen(container: AppContainer, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.refresh_rate_title), onBack = onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            Row(
-                Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    stringResource(R.string.refresh_rate_enable),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(checked = state.enabled, onCheckedChange = viewModel::setEnabled)
+        // Tanpa root: butuh dua izin biasa agar tetap berfungsi di semua ROM/device.
+        var tick by remember { mutableIntStateOf(0) }
+        var rootOk by remember { mutableStateOf<Boolean?>(null) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) tick++ }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+        LaunchedEffect(tick) {
+            rootOk = try { container.rootRepository.current().isAvailable } catch (_: Throwable) { false }
+        }
+        val canOverlay = remember(tick) { Settings.canDrawOverlays(context) }
+        val usageOk = remember(tick) { ForegroundAppReader.hasUsageAccess(context) }
+        val filtered = state.apps.filter {
+            state.query.isBlank() || it.label.contains(state.query, ignoreCase = true)
+        }
+
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
+        ) {
+            item(key = "enable") {
+                Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).kynoxCard(com.kynox.gaming.ui.theme.KynoxShapes.section).padding(horizontal = 16.dp)) {
+                    com.kynox.gaming.ui.components.KynoxSwitchRow(
+                        title = stringResource(R.string.refresh_rate_enable),
+                        checked = state.enabled,
+                        onCheckedChange = viewModel::setEnabled
+                    )
+                }
             }
-            // Tanpa root: butuh dua izin biasa agar tetap berfungsi di semua ROM/device.
-            var tick by remember { mutableIntStateOf(0) }
-            var rootOk by remember { mutableStateOf<Boolean?>(null) }
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) tick++ }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
-            LaunchedEffect(tick) {
-                rootOk = try { container.rootRepository.current().isAvailable } catch (_: Throwable) { false }
-            }
-            val canOverlay = remember(tick) { Settings.canDrawOverlays(context) }
-            val usageOk = remember(tick) { ForegroundAppReader.hasUsageAccess(context) }
             if (rootOk == false && (!canOverlay || !usageOk)) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    SectionCard("Mode tanpa root") {
+                item(key = "noroot") {
+                    SectionCard("Mode tanpa root", modifier = Modifier.padding(bottom = 12.dp)) {
                         Text(
                             "Root tidak terdeteksi. Beri dua izin ini agar refresh rate per aplikasi tetap berjalan.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 12.dp)
                         )
                         if (!canOverlay) {
                             KOutlinedButton(
@@ -121,69 +132,64 @@ fun RefreshRateScreen(container: AppContainer, onBack: () -> Unit) {
                                 onClick = {
                                     context.startActivitySafely(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
                             ) { Text("Izinkan akses penggunaan aplikasi") }
                         }
                     }
                 }
             }
             if (state.enabled) {
-                val appliedHz = state.appliedHz
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Refresh rate aktif",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    when {
-                        state.checkingApplied -> Text(
-                            stringResource(R.string.common_loading),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                item(key = "applied") {
+                    val appliedHz = state.appliedHz
+                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp, start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Refresh rate aktif",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
-                        appliedHz != null -> StatusPill(
-                            text = stringResource(R.string.refresh_rate_applied_value, appliedHz),
-                            color = StatusGood
-                        )
-                        else -> StatusPill(
-                            text = stringResource(R.string.refresh_rate_applied_unknown),
-                            color = StatusDanger
-                        )
+                        when {
+                            state.checkingApplied -> Text(
+                                stringResource(R.string.common_loading),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            appliedHz != null -> StatusPill(
+                                text = stringResource(R.string.refresh_rate_applied_value, appliedHz),
+                                color = StatusGood
+                            )
+                            else -> StatusPill(
+                                text = stringResource(R.string.refresh_rate_applied_unknown),
+                                color = StatusDanger
+                            )
+                        }
                     }
                 }
             }
-            Text(
-                stringResource(R.string.refresh_rate_min_android_warning),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = viewModel::setQuery,
-                label = { Text(stringResource(R.string.refresh_rate_search_hint)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            )
-
-            val filtered = state.apps.filter {
-                state.query.isBlank() || it.label.contains(state.query, ignoreCase = true)
+            item(key = "warning") {
+                Text(
+                    stringResource(R.string.refresh_rate_min_android_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 12.dp)
+                )
             }
-
-            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
-                items(filtered, key = { it.packageName }) { app ->
-                    Column {
-                        AppRateRow(
-                            app = app,
-                            currentHz = state.overrides[app.packageName],
-                            defaultHz = state.defaultRate,
-                            supportedRates = state.supportedRates,
-                            onSelected = { hz -> viewModel.setOverride(app.packageName, hz) }
-                        )
-                        KDivider()
-                    }
-                }
+            item(key = "search") {
+                com.kynox.gaming.ui.components.KynoxSearchField(
+                    value = state.query,
+                    onValueChange = viewModel::setQuery,
+                    placeholder = stringResource(R.string.refresh_rate_search_hint),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+            groupedItems(filtered, key = { it.packageName }) { app ->
+                AppRateRow(
+                    app = app,
+                    currentHz = state.overrides[app.packageName],
+                    defaultHz = state.defaultRate,
+                    supportedRates = state.supportedRates,
+                    onSelected = { hz -> viewModel.setOverride(app.packageName, hz) }
+                )
             }
         }
     }

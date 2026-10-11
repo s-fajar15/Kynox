@@ -79,8 +79,8 @@ import java.util.UUID
 import kotlin.math.roundToInt
 
 @Composable
-private fun ToolScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
-    androidx.compose.material3.Scaffold(topBar = { DetailTopBar(title, onBack) }) { p ->
+private fun ToolScaffold(title: String, onBack: () -> Unit, info: String? = null, content: @Composable () -> Unit) {
+    androidx.compose.material3.Scaffold(topBar = { DetailTopBar(title, onBack, info = info) }) { p ->
         Column(Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
     }
 }
@@ -88,11 +88,12 @@ private fun ToolScaffold(title: String, onBack: () -> Unit, content: @Composable
 @Composable
 private fun ToolCard(title: String, subtitle: String? = null, icon: androidx.compose.ui.graphics.vector.ImageVector = KynoxIcons.Info, content: @Composable () -> Unit) {
     Box(Modifier.fillMaxWidth().kynoxCard()) {
-        Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = KynoxAccentDark, modifier = Modifier.size(19.dp)) }
+                com.kynox.gaming.ui.components.IconTile(icon, size = 36.dp)
                 Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); subtitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                subtitle?.let { com.kynox.gaming.ui.components.InfoButton(it, title = title) }
             }
             content()
         }
@@ -143,13 +144,12 @@ fun AutomationScreen(container: AppContainer, onBack: () -> Unit) {
     val noProfile = "Tanpa profil"
     val profileOptions = listOf(noProfile) + ProfileType.values().map { it.name }
 
-    ToolScaffold("Automation Rules", onBack) {
+    ToolScaffold("Automation Rules", onBack, info = "Memantau aplikasi di depan lewat service Kynox (butuh root). Automation tidak mengubah thermal safety dan hanya menjalankan aturan yang kamu buat. Profil yang diterapkan tidak dikembalikan otomatis saat aplikasi ditutup.") {
         ToolCard("Automation Engine", "Jalankan aturan saat aplikasi dibuka, dan kembalikan profil serta refresh rate sebelumnya saat aplikasi ditutup", KynoxIcons.Profiles) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     StatusPill(if (enabled) "Aktif" else "Tidak aktif", if (enabled) StatusGood else MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
-                    Text("Memantau aplikasi di depan lewat service Kynox (butuh root).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(enabled, onCheckedChange = { value ->
                     enabled = value
@@ -220,7 +220,6 @@ fun AutomationScreen(container: AppContainer, onBack: () -> Unit) {
                 KOutlinedButton(onClick = { pendingDelete = rule }, modifier = Modifier.fillMaxWidth()) { Text("Hapus aturan", color = StatusDanger) }
             }
         }
-        Text("Automation tidak mengubah thermal safety dan hanya menjalankan aturan yang kamu buat. Profil yang diterapkan tidak dikembalikan otomatis saat aplikasi ditutup.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -255,7 +254,7 @@ fun NetworkMonitorScreen(container: AppContainer, onBack: () -> Unit) {
 
 @Composable
 private fun Metric(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(15.dp)).padding(13.dp)) { Text(label, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+    Column(modifier.background(MaterialTheme.colorScheme.primaryContainer, com.kynox.gaming.ui.theme.KynoxShapes.iconTile).padding(13.dp)) { Text(label, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
 }
 
 private fun formatRate(bps: Long): String = when { bps >= 1_000_000 -> "%.1f MB/s".format(bps / 1_000_000f); bps >= 1_000 -> "%.0f KB/s".format(bps / 1_000f); else -> "$bps B/s" }
@@ -285,7 +284,7 @@ fun SelinuxMonitorScreen(container: AppContainer, onBack: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { reload() }
-    ToolScaffold("SELinux Monitor", onBack) {
+    ToolScaffold("SELinux Monitor", onBack, info = "Kynox hanya membaca status dan log SELinux; tidak mengubah enforcement policy.") {
         ToolCard("SELinux", "Status enforcement perangkat", KynoxIcons.Root) {
             val current = status
             when {
@@ -314,7 +313,6 @@ fun SelinuxMonitorScreen(container: AppContainer, onBack: () -> Unit) {
                 }
             }
         }
-        Text("Kynox hanya membaca status dan log SELinux; tidak mengubah enforcement policy.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -351,7 +349,7 @@ fun KynoxSnapshotScreen(container: AppContainer, onBack: () -> Unit) {
         savedName = file.name
         text = json.toString(2)
     }
-    ToolScaffold("Kynox Snapshot", onBack) {
+    ToolScaffold("Kynox Snapshot", onBack, info = "Snapshot disimpan di penyimpanan privat Kynox dan tidak dikirim ke mana pun.") {
         ToolCard("Device Snapshot", "Simpan kondisi perangkat saat ini sebagai JSON", KynoxIcons.Device) {
             KButton(enabled = !capturing, onClick = {
                 capturing = true; error = null
@@ -374,7 +372,6 @@ fun KynoxSnapshotScreen(container: AppContainer, onBack: () -> Unit) {
                 SelectionContainer { Text(shown, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
             }
         }
-        Text("Snapshot disimpan di penyimpanan privat Kynox dan tidak dikirim ke mana pun.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -463,7 +460,7 @@ fun CommandConsoleScreen(container: AppContainer, onBack: () -> Unit) {
         ToolCard("Output", icon = KynoxIcons.Root) {
             SelectionContainer {
                 Column(
-                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(12.dp),
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, com.kynox.gaming.ui.theme.KynoxShapes.iconTile).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     lines.forEach { line ->

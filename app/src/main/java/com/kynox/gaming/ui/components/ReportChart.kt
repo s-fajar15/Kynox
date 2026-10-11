@@ -113,12 +113,12 @@ fun ReportChart(
                     areaPath.lineTo(curve.last().x, bottom)
                     areaPath.lineTo(curve.first().x, bottom)
                     areaPath.close()
-                    drawPath(areaPath, color = lineColor.copy(alpha = 0.14f), style = Fill)
+                    drawPath(areaPath, color = lineColor.copy(alpha = 0.10f), style = Fill)
                 }
 
                 val strokeWidth = 2.dp.toPx()
                 if (segmentColor == null) {
-                    drawPath(smoothLinePath(curve), color = lineColor, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
+                    drawPath(smoothLinePath(curve), color = lineColor, style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round))
                 } else {
                     for (i in 1 until points.size) {
                         val from = points[i - 1]

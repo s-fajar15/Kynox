@@ -90,7 +90,7 @@ fun SessionHistoryScreen(container: AppContainer, onBack: () -> Unit, onOpenRepo
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp)
+                contentPadding = com.kynox.gaming.ui.components.KynoxListPadding
             ) {
                 item { HistorySummary(state.reports) }
                 groups.forEach { group ->
@@ -130,16 +130,14 @@ private fun HistorySummary(reports: List<SessionReport>) {
     val overall = if (averages.isEmpty()) null else averages.average().toFloat()
 
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)) {
-        Text(
-            stringResource(R.string.history_headline),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            stringResource(R.string.history_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.history_headline),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+            com.kynox.gaming.ui.components.InfoButton(stringResource(R.string.history_hint))
+        }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth()) {
             SummaryStat(reports.size.toString(), stringResource(R.string.history_stat_sessions), Modifier.weight(1f))
@@ -204,8 +202,8 @@ private fun TimelineEntry(
                     val top = if (isFirst) nodeY else 0f
                     val bottom = if (isLast) nodeY else size.height
                     drawLine(railColor, Offset(x, top), Offset(x, bottom), strokeWidth = 2.dp.toPx())
-                    drawCircle(nodeColor, radius = 6.dp.toPx(), center = Offset(x, nodeY))
-                    drawCircle(holeColor, radius = 3.dp.toPx(), center = Offset(x, nodeY))
+                    drawRect(nodeColor, Offset(x - 6.dp.toPx(), nodeY - 6.dp.toPx()), androidx.compose.ui.geometry.Size(12.dp.toPx(), 12.dp.toPx()))
+                    drawRect(holeColor, Offset(x - 3.dp.toPx(), nodeY - 3.dp.toPx()), androidx.compose.ui.geometry.Size(6.dp.toPx(), 6.dp.toPx()))
                 }
         )
         Column(Modifier.weight(1f).padding(start = 8.dp, bottom = 26.dp)) {
@@ -284,7 +282,7 @@ private fun FpsSparkline(values: List<Float>, avg: Float, modifier: Modifier = M
 
 @Composable
 private fun StabilityBar(stable: Int, minor: Int, severe: Int) {
-    Row(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))) {
+    Row(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))) {
         if (stable > 0) Box(Modifier.weight(stable.toFloat()).fillMaxHeight().background(StatusGood))
         if (minor > 0) Box(Modifier.weight(minor.toFloat()).fillMaxHeight().background(StatusWarning))
         if (severe > 0) Box(Modifier.weight(severe.toFloat()).fillMaxHeight().background(StatusDanger))

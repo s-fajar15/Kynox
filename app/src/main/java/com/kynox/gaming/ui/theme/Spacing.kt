@@ -11,10 +11,14 @@ object KynoxSpacing {
     val xl: Dp = 24.dp
     val xxl: Dp = 32.dp
 
-    /** Horizontal page gutter. */
-    val page: Dp = 20.dp
-    /** Vertical gap between sections on a page. */
-    val section: Dp = 28.dp
-    /** Minimum touch target. */
+    /** Padding horizontal layar. */
+    val page: Dp = 16.dp
+    /** Jarak vertikal antar kartu (10-12 dp). */
+    val cardGap: Dp = 12.dp
+    /** Padding di dalam kartu. */
+    val cardPadding: Dp = 16.dp
+    /** Jarak antar bagian bergrup pada satu layar. */
+    val section: Dp = 20.dp
+    /** Target sentuh minimum. */
     val touch: Dp = 48.dp
 }

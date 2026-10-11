@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -55,12 +56,9 @@ fun KynoxApp(container: AppContainer) {
                 KynoxBottomBar(items)
             }
         }
-    ) { _ ->
-        // Sengaja TIDAK memakai padding dari Scaffold: konten dibiarkan memanjang
-        // sampai ke belakang bottom bar yang melayang, jadi tidak ada pita hitam.
-        // Tiap layar tab sudah punya contentPadding bawah (74-104dp) supaya item
-        // terakhir tidak tertutup bar.
-        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+    ) { inner ->
+        // 3.0: bar navigasi menempel di dasar layar, jadi konten berhenti tepat di atasnya.
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding())) {
             KynoxNavHost(navController = navController, container = container)
         }
         if (showPermissionPrompt) {

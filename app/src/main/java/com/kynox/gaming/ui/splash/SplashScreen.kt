@@ -1,9 +1,5 @@
 package com.kynox.gaming.ui.splash
 
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -11,12 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,24 +17,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.kynox.gaming.ui.components.KMark
-import com.kynox.gaming.ui.theme.KynoxAccentDark
+import com.kynox.gaming.ui.theme.rememberMotionScale
 import kotlinx.coroutines.delay
 
+/**
+ * Splash 4.0: hanya tulisan "Kynox" di atas latar tema, memudar masuk lalu keluar (total di bawah satu detik,
+ * mengikuti skala animasi sistem). Tanpa logo kotak, tanpa huruf kapital, tanpa bilah kemajuan.
+ */
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
+    val scale = rememberMotionScale()
     val enter = remember { Animatable(0f) }
     val exit = remember { Animatable(1f) }
     LaunchedEffect(Unit) {
-        enter.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
-        delay(500)
-        exit.animateTo(0f, tween(260))
+        enter.animateTo(1f, tween((220 * scale).toInt(), easing = FastOutSlowInEasing))
+        delay((420 * scale).toLong())
+        exit.animateTo(0f, tween((200 * scale).toInt()))
         onFinished()
     }
 
@@ -53,21 +44,19 @@ fun SplashScreen(onFinished: () -> Unit) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.alpha(enter.value).scale(0.86f + 0.14f * enter.value)
+            modifier = Modifier.alpha(enter.value)
         ) {
-            Box(Modifier.size(104.dp).clip(RoundedCornerShape(30.dp)).background(Color(0xFF1E293B)), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
-                    KMark(markSize = 48.dp, color = KynoxAccentDark)
-                }
-            }
-            Text("Kynox", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(top = 22.dp))
-            Text("Optimasi. Monitoring. Kontrol.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.2.sp, modifier = Modifier.padding(top = 5.dp))
-            Box(
-                Modifier.padding(top = 32.dp).width(150.dp).height(3.dp).clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.outline)
-            ) {
-                Box(Modifier.fillMaxWidth(enter.value).fillMaxHeight().background(KynoxAccentDark))
-            }
+            Text(
+                "Kynox",
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                "Performa dan sistem Android",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
         }
     }
 }

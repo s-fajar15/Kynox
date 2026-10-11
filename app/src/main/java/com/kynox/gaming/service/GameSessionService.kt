@@ -150,7 +150,7 @@ class GameSessionService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.SESSION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
-            .setColor(0xFF2F6FED.toInt())
+            .setColor(0xFF00696A.toInt())
             .setContentTitle(getString(R.string.notif_session_title))
             .setContentText(getString(R.string.notif_session_text, label ?: ""))
             .setOngoing(true)

@@ -87,28 +87,34 @@ fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.profiles_title), onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            state.message?.let { msg ->
+                item {
+                    com.kynox.gaming.ui.components.MessageBanner(
+                        message = msg,
+                        onDismiss = { viewModel.consumeMessage() },
+                        isError = !msg.startsWith("Current CPU/GPU state saved")
+                    )
+                }
+            }
             item {
                 val active = presetInfo.firstOrNull { it.type == state.activeProfile }
                 HighlightPanel {
                     Text(
                         stringResource(R.string.active_profile_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.labelMedium
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        active?.let { stringResource(it.labelRes) } ?: stringResource(R.string.common_unknown),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        active?.let { stringResource(it.labelRes) } ?: "Belum ada profil diterapkan",
+                        style = MaterialTheme.typography.headlineSmall
                     )
                     active?.let {
                         Text(
                             stringResource(it.descRes),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
@@ -149,16 +155,30 @@ fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
                 }
             }
 
+            if (!state.thermalPolicy.supported) {
+                item {
+                    SectionCard(
+                        title = stringResource(R.string.thermal_policy_section_title),
+                        trimTrailingDivider = false,
+                        trailing = { com.kynox.gaming.ui.components.UnsupportedPill() }
+                    ) {
+                        Spacer(Modifier.height(12.dp))
+                        com.kynox.gaming.ui.components.UnsupportedNotice("Kernel ini tidak menyediakan kebijakan termal yang bisa diatur dari Kynox.")
+                    }
+                }
+            }
             if (state.thermalPolicy.supported) {
                 item {
                     SectionCard(
                         title = stringResource(R.string.thermal_policy_section_title),
+                        trimTrailingDivider = false,
                         trailing = {
                             state.thermalPolicy.currentPolicy?.let {
                                 StatusPill(text = it, color = StatusGood)
                             }
                         }
                     ) {
+                        Spacer(Modifier.height(12.dp))
                         Text(
                             stringResource(
                                 R.string.thermal_policy_zone_support,
@@ -170,6 +190,7 @@ fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
                         )
                         Spacer(Modifier.height(12.dp))
                         KOutlinedButton(
+                            modifier = Modifier.padding(bottom = 6.dp),
                             onClick = { showThermalPolicyDialog = true },
                             enabled = !state.thermalPolicyBusy && state.thermalPolicy.availablePolicies.isNotEmpty()
                         ) {
@@ -180,45 +201,28 @@ fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
             }
 
             item {
-                SectionCard(title = stringResource(R.string.profile_custom_section_title)) {
-                    Text(
-                        stringResource(R.string.profile_custom_section_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                SectionCard(title = stringResource(R.string.profile_custom_section_title), info = stringResource(R.string.profile_custom_section_desc), trimTrailingDivider = false) {
                     Spacer(Modifier.height(12.dp))
-                    KOutlinedButton(onClick = { viewModel.saveCurrentAsCustom() }, enabled = !state.busy) {
+                    KOutlinedButton(onClick = { viewModel.saveCurrentAsCustom() }, enabled = !state.busy, modifier = Modifier.padding(bottom = 6.dp)) {
                         Text(stringResource(R.string.btn_save_current_custom))
                     }
                 }
             }
 
             item {
-                SectionCard(title = stringResource(R.string.apply_on_boot_section_title)) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            stringResource(R.string.apply_on_boot_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f).padding(end = 12.dp)
-                        )
-                        Switch(checked = state.applyOnBoot, onCheckedChange = { viewModel.setApplyOnBoot(it) })
-                    }
+                SectionCard(title = stringResource(R.string.apply_on_boot_section_title), info = stringResource(R.string.apply_on_boot_desc)) {
+                    com.kynox.gaming.ui.components.KynoxSwitchRow(
+                        title = stringResource(R.string.common_active),
+                        checked = state.applyOnBoot,
+                        onCheckedChange = { viewModel.setApplyOnBoot(it) }
+                    )
                 }
             }
 
             item {
-                SectionCard(title = stringResource(R.string.reset_profile_section_title)) {
-                    Text(
-                        stringResource(R.string.reset_profile_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                SectionCard(title = stringResource(R.string.reset_profile_section_title), info = stringResource(R.string.reset_profile_desc), trimTrailingDivider = false) {
                     Spacer(Modifier.height(12.dp))
-                    KOutlinedButton(onClick = { viewModel.reset() }, enabled = !state.busy) {
+                    KOutlinedButton(onClick = { viewModel.reset() }, enabled = !state.busy, modifier = Modifier.padding(bottom = 6.dp)) {
                         Text(stringResource(R.string.btn_reset_to_original))
                     }
                 }

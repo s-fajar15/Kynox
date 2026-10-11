@@ -89,10 +89,14 @@ object SysfsAccess {
 
         val marker = "@@KYNOX_SYSFS@@"
         val missing = paths.filter { direct[it] == null }
-        val command = missing.joinToString(" ; ") { path -> "echo '$marker$path' ; cat '$path' 2>/dev/null" }
-        val result = rootExecutor.execute(command, timeoutMs = 5000L)
         val rootValues = mutableMapOf<String, String?>()
-        if (result.isSuccess) {
+        // Kelompok kecil, dan "; true" di akhir: kode keluar perintah gabungan sama dengan perintah
+        // TERAKHIR. Tanpa itu, satu path terakhir yang tidak ada di kernel ini (cat gagal, exit 1)
+        // membuat SEMUA hasil di kelompok itu dibuang, dan fitur salah tampil "tidak didukung".
+        missing.chunked(16).forEach { chunk ->
+            val command = chunk.joinToString(" ; ") { path -> "echo '$marker$path' ; cat '$path' 2>/dev/null" } + " ; true"
+            val result = rootExecutor.execute(command, timeoutMs = 5000L)
+            if (result.timedOut) return@forEach
             result.stdout.split(marker).drop(1).forEach { part ->
                 val newline = part.indexOf('\n')
                 val path = if (newline == -1) part.trim() else part.substring(0, newline).trim()

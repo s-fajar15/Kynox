@@ -35,3 +35,17 @@ data class FastChargingState(
     val writableNodeCount: Int,
     val reason: String
 )
+
+/** Hasil pemeriksaan setelah Fast Charging dinyalakan (apa yang benar-benar terjadi, bukan status toggle). */
+data class FastChargeVerdict(
+    val daemonRunning: Boolean,
+    val nodesPresent: Int,
+    val nodesAtTarget: Int,
+    val measuredCurrentMa: Int?,
+    val plugged: Boolean,
+    val launchError: String?,
+    /** False bila pembacaan node gagal (timeout/error root): saat itu "0 node" BUKAN bukti kernel tidak mendukung. */
+    val readOk: Boolean = true,
+    /** Contoh nilai node yang terbaca (path singkat=nilai), untuk bukti di layar. */
+    val sample: String? = null
+)

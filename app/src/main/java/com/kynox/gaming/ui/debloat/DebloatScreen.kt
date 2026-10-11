@@ -1,5 +1,6 @@
 package com.kynox.gaming.ui.debloat
 
+import com.kynox.gaming.ui.components.groupedItems
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,53 +49,44 @@ fun DebloatScreen(container: AppContainer, onBack: () -> Unit) {
     var confirmTarget by remember { mutableStateOf<DebloatApp?>(null) }
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.debloat_title), onBack = onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            HighlightPanel(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    stringResource(R.string.debloat_warning_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = StatusWarning
-                )
-                Text(
-                    stringResource(R.string.debloat_warning_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+        val filtered = state.apps.filter {
+            state.query.isBlank() ||
+                it.label.contains(state.query, ignoreCase = true) ||
+                it.packageName.contains(state.query, ignoreCase = true)
+        }
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
+        ) {
+            // Peringatan tetap tampil langsung di kartu, bukan di balik (i).
+            item(key = "warning") {
+                com.kynox.gaming.ui.components.NoticeCard(
+                    title = stringResource(R.string.debloat_warning_title),
+                    text = stringResource(R.string.debloat_warning_desc),
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
-
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = viewModel::setQuery,
-                label = { Text(stringResource(R.string.debloat_search_hint)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-            )
-
-            val filtered = state.apps.filter {
-                state.query.isBlank() ||
-                    it.label.contains(state.query, ignoreCase = true) ||
-                    it.packageName.contains(state.query, ignoreCase = true)
+            item(key = "search") {
+                com.kynox.gaming.ui.components.KynoxSearchField(
+                    value = state.query,
+                    onValueChange = viewModel::setQuery,
+                    placeholder = stringResource(R.string.debloat_search_hint),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
             }
-
             if (state.loading) {
-                Row(Modifier.fillMaxWidth().padding(32.dp), horizontalArrangement = Arrangement.Center) {
-                    CircularProgressIndicator()
+                item(key = "loading") {
+                    Row(Modifier.fillMaxWidth().padding(32.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
                 }
             } else {
-                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        Column {
-                            DebloatRow(
-                                app = app,
-                                busy = state.busyPackage == app.packageName,
-                                onToggle = { wantDisabled ->
-                                    if (wantDisabled) confirmTarget = app else viewModel.setDisabled(app.packageName, false)
-                                }
-                            )
-                            KDivider()
+                groupedItems(filtered, key = { it.packageName }) { app ->
+                    DebloatRow(
+                        app = app,
+                        busy = state.busyPackage == app.packageName,
+                        onToggle = { wantDisabled ->
+                            if (wantDisabled) confirmTarget = app else viewModel.setDisabled(app.packageName, false)
                         }
-                    }
+                    )
                 }
             }
         }

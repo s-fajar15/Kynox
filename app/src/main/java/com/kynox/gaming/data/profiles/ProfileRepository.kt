@@ -172,8 +172,8 @@ class ProfileRepository(
                         successDetail = "set to $resolvedCpuGovernor"
                     )
                 }
-                resolvedCpuGovernor == null -> txn.skip("CPU${core.core} governor", "no matching governor available on this kernel")
-                else -> txn.skip("CPU${core.core} governor", "read-only on this kernel without root")
+                resolvedCpuGovernor == null -> txn.skip("CPU${core.core} governor", "kernel tidak menyediakan governor yang cocok")
+                else -> txn.skip("CPU${core.core} governor", "hanya-baca di kernel ini tanpa root")
             }
 
             if (capFreqToMax && core.canWriteFreq) {
@@ -200,7 +200,8 @@ class ProfileRepository(
                     label = "GPU governor",
                     write = { gpuRepository.setGovernor(resolvedGpuGovernor) },
                     undo = { gpu.governor?.let { gpuRepository.setGovernor(it) } ?: AppResult.Success(Unit) },
-                    successDetail = "set to $resolvedGpuGovernor"
+                    successDetail = "set to $resolvedGpuGovernor",
+                    optional = true
                 )
             }
             if (capFreqToMax && gpu.canWriteFreq) {
@@ -212,7 +213,8 @@ class ProfileRepository(
                         label = "GPU max freq",
                         write = { gpuRepository.setMaxFreq(target) },
                         undo = { gpu.maxFreqKhz?.let { gpuRepository.setMaxFreq(it) } ?: AppResult.Success(Unit) },
-                        successDetail = "capped to ${gpuFreqMhz(target)} MHz"
+                        successDetail = "capped to ${gpuFreqMhz(target)} MHz",
+                        optional = true
                     )
                 }
             }
@@ -250,7 +252,8 @@ class ProfileRepository(
                     label = "GPU governor",
                     write = { gpuRepository.setGovernor(config.gpuGovernor) },
                     undo = { gpu.governor?.let { gpuRepository.setGovernor(it) } ?: AppResult.Success(Unit) },
-                    successDetail = "set to ${config.gpuGovernor}"
+                    successDetail = "set to ${config.gpuGovernor}",
+                    optional = true
                 )
             }
             if (config.gpuMaxFreqKhz != null && gpu.canWriteFreq) {
@@ -258,7 +261,8 @@ class ProfileRepository(
                     label = "GPU max freq",
                     write = { gpuRepository.setMaxFreq(config.gpuMaxFreqKhz) },
                     undo = { gpu.maxFreqKhz?.let { gpuRepository.setMaxFreq(it) } ?: AppResult.Success(Unit) },
-                    successDetail = "set to ${gpuFreqMhz(config.gpuMaxFreqKhz)} MHz"
+                    successDetail = "set to ${gpuFreqMhz(config.gpuMaxFreqKhz)} MHz",
+                    optional = true
                 )
             }
         }
@@ -292,12 +296,14 @@ class ProfileRepository(
         private val results = mutableListOf<ProfileParamResult>()
         private val undoStack = mutableListOf<Pair<String, suspend () -> AppResult<Unit>>>()
         private var firstFailureDetail: String? = null
+        private val softFailures = mutableListOf<String>()
 
         suspend fun attempt(
             label: String,
             write: suspend () -> AppResult<Unit>,
             undo: suspend () -> AppResult<Unit>,
-            successDetail: String
+            successDetail: String,
+            optional: Boolean = false
         ) {
             val r = write()
             if (r is AppResult.Success) {
@@ -306,7 +312,13 @@ class ProfileRepository(
             } else {
                 val message = (r as AppResult.Failure).message.ifBlank { "write failed" }
                 results += ProfileParamResult(label, false, message)
-                if (firstFailureDetail == null) firstFailureDetail = "$label: $message"
+                if (optional) {
+                    // Parameter opsional (GPU): kernel boleh menolaknya tanpa menggagalkan bagian lain.
+                    // Hasilnya tetap dilaporkan sebagai gagal di kartu hasil penerapan.
+                    softFailures += "$label: $message"
+                } else if (firstFailureDetail == null) {
+                    firstFailureDetail = "$label: $message"
+                }
             }
         }
 
@@ -334,7 +346,10 @@ class ProfileRepository(
                 return AppResult.Failure(failure)
             }
             backupStore.save(ACTIVE_KEY, mapOf("type" to type.name))
-            logRepository.append(LogEntry(System.currentTimeMillis(), "APPLY_PROFILE", type.name, null, null, "SUCCESS", null))
+            logRepository.append(
+                LogEntry(System.currentTimeMillis(), "APPLY_PROFILE", type.name, null, null, "SUCCESS",
+                    softFailures.takeIf { it.isNotEmpty() }?.let { "sebagian tidak diterapkan: " + it.joinToString("; ") })
+            )
             return AppResult.Success(ProfileApplySummary(type, results))
         }
     }

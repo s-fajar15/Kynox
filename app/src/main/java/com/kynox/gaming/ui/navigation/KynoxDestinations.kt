@@ -10,6 +10,9 @@ sealed class Dest(val route: String) {
     data object Control : Dest("control")
     data object Monitor : Dest("monitor")
     data object Device : Dest("device")
+    /** Tab Lainnya: pusat semua fitur. */
+    data object More : Dest("more")
+    /** Layar Pengaturan (dibuka dari Lainnya > Aplikasi). */
     data object Settings : Dest("settings")
     data object Backup : Dest("settings/backup")
     data object QuickPanel : Dest("settings/quick-panel")
@@ -26,6 +29,7 @@ sealed class Dest(val route: String) {
     data object Processes : Dest("device/processes")
     data object RefreshRate : Dest("device/refresh-rate")
     data object Debloat : Dest("device/debloat")
+    data object AdBlock : Dest("device/adblock")
     data object About : Dest("device/about")
     data object Session : Dest("device/session")
     data object SessionHistory : Dest("device/session/history")
@@ -43,8 +47,8 @@ sealed class Dest(val route: String) {
 data class BottomNavItem(val dest: Dest, val labelRes: Int, val icon: ImageVector)
 
 val bottomNavItems = listOf(
-    BottomNavItem(Dest.Home, R.string.nav_home, KynoxIcons.Overview),
-    BottomNavItem(Dest.Monitor, R.string.nav_monitor, KynoxIcons.Monitor),
-    BottomNavItem(Dest.Device, R.string.nav_device, KynoxIcons.Device),
-    BottomNavItem(Dest.Settings, R.string.nav_more, KynoxIcons.Apps)
+    BottomNavItem(Dest.Home, R.string.nav_home, KynoxIcons.Home),
+    BottomNavItem(Dest.Monitor, R.string.nav_monitor, KynoxIcons.Pulse),
+    BottomNavItem(Dest.Device, R.string.nav_device, KynoxIcons.Phone),
+    BottomNavItem(Dest.More, R.string.nav_more, KynoxIcons.Grid)
 )

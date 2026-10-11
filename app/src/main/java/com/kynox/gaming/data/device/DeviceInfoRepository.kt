@@ -7,6 +7,7 @@ import android.os.StatFs
 import android.os.Environment
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import com.kynox.gaming.core.root.RootExecutor
 import com.kynox.gaming.core.shell.ShellExecutor
 import com.kynox.gaming.core.sysfs.CapabilityEngine
 import com.kynox.gaming.core.sysfs.SysfsAccess
@@ -25,8 +26,81 @@ import kotlin.math.sqrt
 class DeviceInfoRepository(
     private val context: Context,
     private val capabilityEngine: CapabilityEngine,
-    private val rootRepository: RootRepository
+    private val rootRepository: RootRepository,
+    private val rootExecutor: RootExecutor? = null
 ) {
+
+    @Volatile private var cache: DeviceInfo? = null
+
+    /** Hasil pemuatan terakhir (bila ada), supaya layar bisa tampil langsung tanpa menunggu pemeriksaan ulang. */
+    fun cached(): DeviceInfo? = cache
+
+    /** Nama pasar dari properti sistem; urutan: yang paling umum dulu. Kosong bila tidak ada satu pun. */
+    private suspend fun readMarketName(): String {
+        val out = ShellExecutor.run(
+            "getprop ro.product.marketname; getprop ro.product.vendor.marketname; " +
+                "getprop ro.product.odm.marketname; getprop ro.config.marketing_name; getprop ro.product.system.marketname"
+        ).stdout
+        return out.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
+    }
+
+    suspend fun readStorage(): StorageInfo = withContext(Dispatchers.IO) { readStorageInfo() }
+
+    /** Pasangan (terpakai, total) swap/zram dalam byte; (0, 0) bila tidak ada. */
+    suspend fun readSwap(): Pair<Long, Long> = withContext(Dispatchers.IO) {
+        val text = SysfsAccess.readDirect("/proc/meminfo") ?: return@withContext 0L to 0L
+        fun kb(key: String) = text.lineSequence().firstOrNull { it.startsWith(key) }
+            ?.filter { it.isDigit() }?.toLongOrNull() ?: 0L
+        val total = kb("SwapTotal:") * 1024L
+        val free = kb("SwapFree:") * 1024L
+        (total - free).coerceAtLeast(0L) to total
+    }
+
+    /**
+     * Info dasar yang hanya dibaca dari `Build.*`, RAM, layar, dan penyimpanan: tanpa shell, root, atau EGL,
+     * sehingga selalu cepat dan tidak bisa menggantung. Dipakai supaya kartu perangkat langsung terisi
+     * selagi [load] (yang lebih lengkap) masih berjalan.
+     */
+    fun basic(): DeviceInfo {
+        val memInfo = ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
+        val soc = if (Build.VERSION.SDK_INT >= 31) {
+            runCatching { Build.SOC_MANUFACTURER to Build.SOC_MODEL }.getOrNull()
+        } else null
+        return DeviceInfo(
+            manufacturer = Build.MANUFACTURER ?: UNKNOWN_VALUE,
+            brand = Build.BRAND ?: UNKNOWN_VALUE,
+            model = Build.MODEL ?: UNKNOWN_VALUE,
+            device = Build.DEVICE ?: UNKNOWN_VALUE,
+            androidVersion = Build.VERSION.RELEASE ?: UNKNOWN_VALUE,
+            androidSdk = Build.VERSION.SDK_INT,
+            socManufacturer = soc?.first?.takeIf { it.isNotBlank() } ?: UNKNOWN_VALUE,
+            socModel = soc?.second?.takeIf { it.isNotBlank() } ?: UNKNOWN_VALUE,
+            cpuArchitecture = Build.SUPPORTED_ABIS.firstOrNull() ?: UNKNOWN_VALUE,
+            cpuCoreCount = Runtime.getRuntime().availableProcessors(),
+            supportedAbis = Build.SUPPORTED_ABIS.joinToString(", ").ifBlank { UNKNOWN_VALUE },
+            gpuRenderer = UNKNOWN_VALUE,
+            gpuVendor = UNKNOWN_VALUE,
+            glEsVersion = UNKNOWN_VALUE,
+            totalRamBytes = memInfo.totalMem,
+            swapTotalBytes = 0L,
+            swapFreeBytes = 0L,
+            kernelVersion = System.getProperty("os.version") ?: NOT_AVAILABLE_VALUE,
+            securityPatch = if (Build.VERSION.SDK_INT >= 23) {
+                runCatching { Build.VERSION.SECURITY_PATCH }.getOrNull()?.takeIf { it.isNotBlank() } ?: UNKNOWN_VALUE
+            } else UNKNOWN_VALUE,
+            fingerprint = Build.FINGERPRINT ?: UNKNOWN_VALUE,
+            selinuxStatus = UNKNOWN_VALUE,
+            isRooted = false,
+            rootImplementation = "None",
+            display = readDisplayInfo(),
+            storage = readStorageInfo(),
+            marketName = "",
+            buildDisplay = Build.DISPLAY.orEmpty(),
+            board = Build.BOARD.orEmpty(),
+            hardware = Build.HARDWARE.orEmpty()
+        )
+    }
 
     suspend fun load(): DeviceInfo = withContext(Dispatchers.Default) {
         val root = rootRepository.current()
@@ -39,16 +113,8 @@ class DeviceInfoRepository(
             runCatching { Build.SOC_MODEL }.getOrNull()?.takeIf { it.isNotBlank() } ?: UNKNOWN_VALUE
         } else UNKNOWN_VALUE
 
-        val kernelVersion = SysfsAccess.readDirect("/proc/version")
-            ?: ShellExecutor.run("cat /proc/version").takeIf { it.isSuccess }?.stdout
-            ?: NOT_AVAILABLE_VALUE
-
-        val selinux = ShellExecutor.run("getenforce").let { result ->
-            if (result.isSuccess && result.stdout.isNotBlank()) result.stdout
-            else SysfsAccess.readDirect("/sys/fs/selinux/enforce")?.let {
-                if (it.trim() == "1") "Enforcing" else "Permissive"
-            } ?: UNKNOWN_VALUE
-        }
+        val kernelVersion = readKernelVersion(root.isAvailable)
+        val selinux = readSelinuxStatus(root.isAvailable)
 
         val gpuProbe = withContext(Dispatchers.Default) {
             GpuRendererProbe.probeAll()
@@ -75,7 +141,7 @@ class DeviceInfoRepository(
             ?.filter { it.isDigit() }
             ?.toLongOrNull() ?: 0L
 
-        DeviceInfo(
+        val built = DeviceInfo(
             manufacturer = Build.MANUFACTURER ?: UNKNOWN_VALUE,
             brand = Build.BRAND ?: UNKNOWN_VALUE,
             model = Build.MODEL ?: UNKNOWN_VALUE,
@@ -100,8 +166,49 @@ class DeviceInfoRepository(
             isRooted = root.isAvailable,
             rootImplementation = if (root.isAvailable) root.provider.name else "None",
             display = readDisplayInfo(),
-            storage = readStorageInfo()
+            storage = readStorageInfo(),
+            marketName = runCatching { readMarketName() }.getOrDefault(""),
+            buildDisplay = Build.DISPLAY.orEmpty(),
+            board = Build.BOARD.orEmpty(),
+            hardware = Build.HARDWARE.orEmpty()
         )
+        cache = built
+        built
+    }
+
+    /**
+     * Versi kernel. Aplikasi biasa dilarang SELinux membaca /proc/version di Android 13+, jadi urutannya:
+     * baca langsung -> properti JVM `os.version` (selalu tersedia, tanpa izin) -> `uname -r` -> root.
+     */
+    private suspend fun readKernelVersion(rootAvailable: Boolean): String {
+        SysfsAccess.readDirect("/proc/version")?.takeIf { it.isNotBlank() }?.let { return it }
+        System.getProperty("os.version")?.trim()?.takeIf { it.isNotBlank() }?.let { return it }
+        ShellExecutor.run("uname -r").takeIf { it.isSuccess && it.stdout.isNotBlank() }?.let { return it.stdout.trim() }
+        if (rootAvailable && rootExecutor != null) {
+            rootExecutor.execute("uname -r || cat /proc/version", 4000L)
+                .takeIf { it.isSuccess && it.stdout.isNotBlank() }?.let { return it.stdout.trim() }
+        }
+        return NOT_AVAILABLE_VALUE
+    }
+
+    /** Status SELinux. `getenforce` ditolak untuk aplikasi biasa, jadi root dipakai bila ada; hasil dinormalkan. */
+    private suspend fun readSelinuxStatus(rootAvailable: Boolean): String {
+        fun normalize(raw: String?): String? = when (raw?.trim()?.lowercase()) {
+            "enforcing", "1" -> "Enforcing"
+            "permissive", "0" -> "Permissive"
+            "disabled" -> "Disabled"
+            else -> null
+        }
+        ShellExecutor.run("getenforce").takeIf { it.isSuccess }?.let { normalize(it.stdout)?.let { v -> return v } }
+        normalize(SysfsAccess.readDirect("/sys/fs/selinux/enforce"))?.let { return it }
+        if (rootAvailable && rootExecutor != null) {
+            val r = rootExecutor.execute("getenforce 2>/dev/null || cat /sys/fs/selinux/enforce", 4000L)
+            if (r.isSuccess) normalize(r.stdout.lineSequence().firstOrNull { it.isNotBlank() })?.let { return it }
+        }
+        // Cadangan tanpa izin: properti boot (tidak selalu ada).
+        val prop = ShellExecutor.run("getprop ro.boot.selinux").stdout
+        normalize(prop)?.let { return it }
+        return UNKNOWN_VALUE
     }
 
     private fun readDisplayInfo(): DisplayInfo {

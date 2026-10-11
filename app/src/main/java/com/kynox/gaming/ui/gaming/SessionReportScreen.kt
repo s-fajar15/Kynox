@@ -142,7 +142,7 @@ fun SessionReportScreen(container: AppContainer, sessionId: Long, onBack: () -> 
 
     Scaffold(
         topBar = {
-            DetailTopBar(title = stringResource(R.string.report_title), onBack = onBack) {
+            DetailTopBar(title = stringResource(R.string.report_title), onBack = onBack, actions = {
                 Box {
                     IconButton(enabled = report != null && !saving, onClick = { menuOpen = true }) {
                         Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.report_export))
@@ -162,7 +162,7 @@ fun SessionReportScreen(container: AppContainer, sessionId: Long, onBack: () -> 
                         )
                     }
                 }
-            }
+            })
         }
     ) { padding ->
         val current = report
@@ -180,7 +180,7 @@ fun SessionReportScreen(container: AppContainer, sessionId: Long, onBack: () -> 
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp)
             ) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -203,12 +203,18 @@ fun SessionReportScreen(container: AppContainer, sessionId: Long, onBack: () -> 
  */
 @Composable
 private fun SessionFullReportCapture(report: SessionReport) {
+    // KynoxTheme menulis tema aktif ke KynoxPalette (dipakai StatusGood/Warning/Danger). Tangkapan ini selalu terang,
+    // jadi nilai tema layar sebenarnya dikembalikan begitu tangkapan selesai.
+    val previousDark = remember { com.kynox.gaming.ui.theme.KynoxPalette.dark }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { com.kynox.gaming.ui.theme.KynoxPalette.dark = previousDark }
+    }
     KynoxTheme(useDarkTheme = false) {
         Column(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.background)
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ReportContent(report)
         }
@@ -431,12 +437,9 @@ private fun VerdictPanel(report: SessionReport) {
                 VerticalRule()
                 StatColumn(stringResource(R.string.report_stat_low5), report.low5PercentFps, Modifier.weight(1f))
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                stringResource(R.string.report_min_fps_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                com.kynox.gaming.ui.components.InfoButton(stringResource(R.string.report_min_fps_note))
+            }
         }
     }
 }
@@ -533,7 +536,7 @@ private fun StatColumn(label: String, value: Float?, modifier: Modifier = Modifi
 @Composable
 private fun StatColumnText(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
-        modifier.clip(RoundedCornerShape(14.dp))
+        modifier.clip(RoundedCornerShape(5.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {

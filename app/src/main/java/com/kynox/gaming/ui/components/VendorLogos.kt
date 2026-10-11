@@ -38,9 +38,9 @@ enum class MarkFont { SANS, SERIF, MONO }
 /**
  * Identitas visual satu merek HP atau satu vendor chipset.
  *
- * Kynox tidak membawa logo resmi (itu merek dagang pemiliknya). Logonya digambar sendiri: nama merek ditulis
- * dengan tipografi khas di atas ilustrasi orisinal (punggung HP dengan kamera, atau kemasan chip dengan pin).
- * Bila file logo asli ditaruh di `res/drawable/` dengan nama `brand_<key>` atau `chip_<key>`, file itu dipakai otomatis.
+ * Logo merek dan chipset dipakai dari berkas gambar di `res/drawable-nodpi/` (`brand_<key>.png`, `chip_<key>.png`,
+ * disediakan pemilik aplikasi; merek dagang milik masing-masing pemiliknya). Bila berkas untuk satu kunci tidak ada,
+ * dipakai gambaran sendiri: nama merek bertipografi khas di atas ilustrasi orisinal.
  */
 data class VendorStyle(
     val kind: String,
@@ -91,6 +91,7 @@ object VendorCatalog {
     private val brands = listOf(
         brandRule("poco", "P", 0xFFFFD500, listOf("poco"), "POCO", FontWeight.Black, 0.06f, dark = true),
         brandRule("iqoo", "iQ", 0xFF1F2937, listOf("iqoo"), "iQOO", FontWeight.Bold, 0.04f),
+        brandRule("redmi", "R", 0xFFFF6900, listOf("redmi"), "Redmi", FontWeight.Medium, 0f),
         brandRule("xiaomi", "mi", 0xFFFF6900, listOf("xiaomi", "redmi", "miui"), "xiaomi", FontWeight.Medium, 0.02f),
         brandRule("samsung", "S", 0xFF1428A0, listOf("samsung"), "SAMSUNG", FontWeight.Black, 0.12f),
         brandRule("realme", "R", 0xFFFFC915, listOf("realme"), "realme", FontWeight.Bold, 0f, dark = true),
@@ -111,20 +112,37 @@ object VendorCatalog {
         brandRule("nokia", "N", 0xFF124191, listOf("nokia", "hmd"), "NOKIA", FontWeight.Bold, 0.16f),
         brandRule("zte", "Z", 0xFF0079C1, listOf("zte", "nubia", "redmagic"), "ZTE", FontWeight.Black, 0.12f),
         brandRule("lenovo", "L", 0xFFE2231A, listOf("lenovo"), "Lenovo", FontWeight.Bold, 0f),
-        brandRule("meizu", "M", 0xFF0AA6E8, listOf("meizu"), "MEIZU", FontWeight.Medium, 0.16f)
+        brandRule("meizu", "M", 0xFF0AA6E8, listOf("meizu"), "MEIZU", FontWeight.Medium, 0.16f),
+        brandRule("sharp", "S", 0xFFE60012, listOf("sharp"), "SHARP", FontWeight.Black, 0.04f),
+        brandRule("wiko", "W", 0xFF00A19B, listOf("wiko"), "WIKO", FontWeight.Bold, 0.06f),
+        brandRule("cat", "C", 0xFFFFC400, listOf("=cat", "caterpillar"), "CAT", FontWeight.Black, 0.04f, dark = true)
     )
 
     // Unisoc dicek sebelum Qualcomm karena pola "sc####" dipakai keduanya.
     private val chips = listOf(
+        chipRule("spreadtrum", "SP", 0xFF2A2A2E, listOf("spreadtrum"), "SPREADTRUM", emptyList(), FontWeight.Bold, 0.04f),
         chipRule(
-            "unisoc", "U", 0xFFFF6A13, listOf("unisoc", "spreadtrum", "tiger", "ums"), "UNISOC",
+            "unisoc", "U", 0xFF5B2A86, listOf("unisoc", "tiger", "ums"), "UNISOC",
             listOf("\\bsc9\\d{3}", "\\bsc7\\d{3}", "\\bsc85\\d{2}", "\\bt6\\d{2}\\b", "\\bt7\\d{2}\\b", "\\bt8\\d{2}\\b"),
             FontWeight.Bold, 0.1f
         ),
-        chipRule("mediatek", "MT", 0xFFFFC800, listOf("mediatek", "dimensity", "helio", "mtk"), "MEDIATEK", listOf("\\bmt\\d{4}"), FontWeight.Black, 0.06f, dark = true),
+        chipRule("helio", "He", 0xFFF39A1E, listOf("helio"), "HELIO", emptyList(), FontWeight.Bold, 0.06f, dark = true),
+        chipRule("mediatek", "MT", 0xFFFFC800, listOf("mediatek", "dimensity", "mtk"), "MEDIATEK", listOf("\\bmt\\d{4}"), FontWeight.Black, 0.06f, dark = true),
+        chipRule("mongoose", "Mo", 0xFF1428A0, listOf("mongoose"), "MONGOOSE", emptyList(), FontWeight.Bold, 0.08f),
         chipRule("exynos", "E", 0xFF1428A0, listOf("exynos", "samsung", "universal", "s5e"), "EXYNOS", listOf("\\bs5e\\d+"), FontWeight.Bold, 0.14f),
         chipRule("tensor", "G", 0xFF4285F4, listOf("tensor", "gs101", "gs201", "zuma"), "Tensor", listOf("\\bgs\\d{3}"), FontWeight.Medium, 0f),
-        chipRule("kirin", "K", 0xFFCF0A2C, listOf("kirin", "hisilicon"), "KIRIN", listOf("\\bhi\\d{4}"), FontWeight.Bold, 0.16f),
+        chipRule("kirin", "K", 0xFFCF0A2C, listOf("kirin"), "KIRIN", emptyList(), FontWeight.Bold, 0.16f),
+        chipRule("hisilicon", "Hi", 0xFFCF0A2C, listOf("hisilicon"), "HISILICON", listOf("\\bhi\\d{4}"), FontWeight.Bold, 0.08f),
+        chipRule("apple", "A", 0xFF2A2A2E, listOf("apple"), "A BIONIC", emptyList(), FontWeight.Bold, 0.08f),
+        chipRule("nvidia", "N", 0xFF76B900, listOf("nvidia", "tegra"), "NVIDIA", emptyList(), FontWeight.Black, 0.08f),
+        chipRule("amd", "A", 0xFF2A2A2E, listOf("amd", "ryzen"), "RYZEN", emptyList(), FontWeight.Black, 0.08f),
+        chipRule("intel", "i", 0xFF0068B5, listOf("intel"), "intel", emptyList(), FontWeight.Bold, 0f),
+        chipRule("rockchip", "Rk", 0xFF0A62C9, listOf("rockchip"), "Rockchip", listOf("\\brk\\d{4}"), FontWeight.Bold, 0f),
+        chipRule("allwinner", "Aw", 0xFF0E1E45, listOf("allwinner"), "ALLWINNER", emptyList(), FontWeight.Bold, 0.04f),
+        chipRule("marvell", "M", 0xFF2A2A2E, listOf("marvell"), "MARVELL", emptyList(), FontWeight.Bold, 0.1f),
+        chipRule("broadcom", "B", 0xFF2A2A2E, listOf("broadcom"), "BROADCOM", emptyList(), FontWeight.Bold, 0.06f),
+        chipRule("surge", "mi", 0xFFFF6900, listOf("surge"), "Surge", emptyList(), FontWeight.Bold, 0f),
+        chipRule("kryo", "Kr", 0xFF2A2A2E, listOf("kryo"), "Kryo", emptyList(), FontWeight.Bold, 0f),
         chipRule(
             "qualcomm", "Q", 0xFF3253DC,
             listOf("qualcomm", "qti", "snapdragon", "adreno", "kona", "lahaina", "taro", "kalama", "pineapple", "waipio", "msmnile", "sdm", "msm", "lito", "atoll", "trinket", "bengal", "holi", "cape", "crow", "parrot", "monaco", "sun"),
@@ -142,7 +160,7 @@ object VendorCatalog {
         val makerText = manufacturer.orEmpty().lowercase().trim()
         for (text in listOf(brandText, makerText)) {
             if (text.isEmpty()) continue
-            brands.firstOrNull { rule -> rule.aliases.any { text == it || text.contains(it) } }?.let { return it.style }
+            brands.firstOrNull { rule -> rule.aliases.any { if (it.startsWith("=")) text == it.drop(1) else (text == it || text.contains(it)) } }?.let { return it.style }
         }
         val label = (brand?.takeIf { it.isNotBlank() } ?: manufacturer.orEmpty()).trim()
         return VendorStyle("brand", "generic", label.take(1).uppercase().ifEmpty { "?" }, neutral, wordmark = label.uppercase().ifEmpty { "?" }, spacingEm = 0.08f)
@@ -174,21 +192,22 @@ private fun VendorStyle.fontFamily(): FontFamily = when (font) {
  * Merek HP = punggung HP dengan jalur kamera; chipset = kemasan chip dengan pin. Tanpa gradient atau glow.
  */
 @Composable
-fun VendorLogoTile(style: VendorStyle, modifier: Modifier = Modifier) {
+fun VendorLogoTile(style: VendorStyle, modifier: Modifier = Modifier, corner: Dp = 14.dp) {
     val context = LocalContext.current
     val resId = remember(style.drawableName) {
         context.resources.getIdentifier(style.drawableName, "drawable", context.packageName)
     }
     val isChip = style.kind == "chip"
     BoxWithConstraints(
-        modifier.clip(RoundedCornerShape(14.dp)).background(if (resId != 0) Color.White else style.color)
+        modifier.clip(RoundedCornerShape(corner))
+            .background(if (resId == 0) style.color else if (isChip) Color(0xFF141414) else Color.White)
     ) {
         val w = maxWidth
         val h = maxHeight
         if (resId != 0) {
             Image(
                 painterResource(resId), contentDescription = null, contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().padding(h * 0.18f)
+                modifier = Modifier.fillMaxSize().padding(if (isChip) 0.dp else h * 0.10f)
             )
         } else {
             val islandW = if (isChip) 0.dp else h * 0.62f
@@ -260,7 +279,12 @@ fun VendorBadge(style: VendorStyle, modifier: Modifier = Modifier, size: Dp = 44
     }
     val shape = RoundedCornerShape(size * 0.28f)
     if (resId != 0) {
-        Box(modifier.size(size).clip(shape).background(Color.White).padding(size * 0.14f), contentAlignment = Alignment.Center) {
+        val isChip = style.kind == "chip"
+        Box(
+            modifier.size(size).clip(shape).background(if (isChip) Color(0xFF141414) else Color.White)
+                .padding(if (isChip) 0.dp else size * 0.10f),
+            contentAlignment = Alignment.Center
+        ) {
             Image(painterResource(resId), contentDescription = null, contentScale = ContentScale.Fit)
         }
     } else {

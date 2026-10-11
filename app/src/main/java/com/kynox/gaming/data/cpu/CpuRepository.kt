@@ -147,7 +147,7 @@ class CpuRepository(
             val result = rootExecutor.writeFile(paths.minFreqPath, minKhz.toString())
             val verified = result.isSuccess && SysfsAccess.readDirect(paths.minFreqPath)?.trim()?.toIntOrNull() == minKhz
             minWritten = verified
-            val failure = if (!result.isSuccess) result.stderr.ifBlank { "Write failed" }
+            val failure = if (!result.isSuccess) result.stderr.ifBlank { "Write failed (exit ${result.exitCode})" }
                 else if (!verified) "readback did not match after write" else null
             logRepository.append(
                 LogEntry(System.currentTimeMillis(), "SET_MIN_FREQ", paths.minFreqPath, minPrevious, minKhz.toString(),
@@ -160,7 +160,7 @@ class CpuRepository(
             val maxPrevious = SysfsAccess.readDirect(paths.maxFreqPath)
             val result = rootExecutor.writeFile(paths.maxFreqPath, maxKhz.toString())
             val verified = result.isSuccess && SysfsAccess.readDirect(paths.maxFreqPath)?.trim()?.toIntOrNull() == maxKhz
-            val failure = if (!result.isSuccess) result.stderr.ifBlank { "Write failed" }
+            val failure = if (!result.isSuccess) result.stderr.ifBlank { "Write failed (exit ${result.exitCode})" }
                 else if (!verified) "readback did not match after write" else null
             logRepository.append(
                 LogEntry(System.currentTimeMillis(), "SET_MAX_FREQ", paths.maxFreqPath, maxPrevious, maxKhz.toString(),

@@ -486,4 +486,14 @@
     <string name="notif_detail_refresh">%1$d Hz</string>
     <string name="notif_thermal_warning_title">Peringatan suhu</string>
     <string name="notif_thermal_warning_text">%1$s mencapai %2$.1f°C</string>
+    <string name="widget_description">Baterai, suhu baterai, dan RAM. Tombol untuk menyalakan overlay.</string>
+    <string name="widget_name">Kynox: Ringkasan</string>
+    <string name="widget_battery_name">Kynox: Baterai</string>
+    <string name="widget_strip_name">Kynox: Strip</string>
+    <string name="widget_charging_name">Kynox: Pengisian</string>
+    <string name="widget_tile_name">Kynox: Overlay</string>
+    <string name="widget_battery_description">Persentase baterai dengan bar, status, dan suhu.</string>
+    <string name="widget_strip_description">Satu baris: baterai, suhu, RAM, dan tombol overlay.</string>
+    <string name="widget_charging_description">Status pengisian: arus, daya, tegangan, dan suhu.</string>
+    <string name="widget_tile_description">Satu ketukan menyalakan atau mematikan overlay cepat.</string>
 </resources>

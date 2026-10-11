@@ -11,8 +11,8 @@ android {
         applicationId = "com.kynox.gaming"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "2.3.4"
+        versionCode = 16
+        versionName = "3.0.5"
         vectorDrawables.useSupportLibrary = true
     }
 

@@ -42,7 +42,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -109,8 +109,8 @@ fun SessionScreen(container: AppContainer, onBack: () -> Unit, onOpenReport: () 
     Scaffold(topBar = { DetailTopBar(title = "Rekam Sesi", onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (state.isRecording) {
                 item {
@@ -154,7 +154,7 @@ fun SessionScreen(container: AppContainer, onBack: () -> Unit, onOpenReport: () 
                         enabled = state.selected != null,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(StatusDanger))
+                        Box(Modifier.size(10.dp).clip(KynoxShapes.circle).background(StatusDanger))
                         Spacer(Modifier.size(10.dp))
                         Text("Mulai merekam")
                     }
@@ -189,7 +189,6 @@ private fun ReadyCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        StatusPill("Siap", MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -283,17 +282,14 @@ private fun RecordedMetrics() {
 
 @Composable
 private fun RecordingCard(game: InstalledGame?, elapsedMs: Long) {
-    val pulse = rememberInfiniteTransition(label = "rec")
-    val alpha by pulse.animateFloat(
-        initialValue = 1f, targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "recAlpha"
-    )
+    // Penanda rekam statis (tanpa animasi berulang); keadaan terbaca dari teks "Sedang merekam".
+    val alpha = 1f
     Column(
         Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(10.dp).alpha(alpha).clip(CircleShape).background(StatusDanger))
+            Box(Modifier.size(10.dp).alpha(alpha).clip(KynoxShapes.circle).background(StatusDanger))
             Text(
                 "Sedang merekam",
                 style = MaterialTheme.typography.titleSmall,
@@ -311,7 +307,7 @@ private fun RecordingCard(game: InstalledGame?, elapsedMs: Long) {
         if (game != null) {
             Spacer(Modifier.height(14.dp))
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
+                Modifier.fillMaxWidth().clip(KynoxShapes.iconTile).background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AppIconImage(game.packageName, 40.dp)
@@ -364,7 +360,7 @@ private fun formatClock(ms: Long): String {
 private fun InfoCard(icon: ImageVector, title: String, description: String, action: () -> Unit) {
     Column(Modifier.fillMaxWidth().kynoxCard(KynoxShapes.section).padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = KynoxAccentDark, modifier = Modifier.size(20.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             Spacer(Modifier.size(9.dp))
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         }

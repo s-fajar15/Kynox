@@ -1,6 +1,14 @@
 package com.kynox.gaming.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import com.kynox.gaming.ui.theme.KynoxMotion
+import com.kynox.gaming.ui.theme.rememberMotionScale
+import com.kynox.gaming.ui.more.MoreScreen
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -39,7 +47,20 @@ import com.kynox.gaming.ui.tools.DiagnosticsScreen
 
 @Composable
 fun KynoxNavHost(navController: NavHostController, container: AppContainer) {
-    NavHost(navController = navController, startDestination = Dest.Home.route) {
+    // Transisi pendek dan seragam (<= 250 ms): layar baru memudar masuk sambil bergeser sedikit; layar lama memudar
+    // cepat. Durasi dikalikan skala animasi sistem (0 = tanpa animasi). Tidak ada animasi yang berulang atau memantul.
+    val slide = 28
+    val scale = rememberMotionScale()
+    val normal = (KynoxMotion.NORMAL * scale).toInt()
+    val fast = (KynoxMotion.FAST * scale).toInt()
+    NavHost(
+        navController = navController,
+        startDestination = Dest.Home.route,
+        enterTransition = { fadeIn(tween(normal)) + slideInHorizontally(tween(normal)) { if (scale == 0f) 0 else slide } },
+        exitTransition = { fadeOut(tween(fast)) },
+        popEnterTransition = { fadeIn(tween(normal)) },
+        popExitTransition = { fadeOut(tween(fast)) + slideOutHorizontally(tween(normal)) { if (scale == 0f) 0 else slide } }
+    ) {
         composable(Dest.Home.route) { DashboardScreen(container, onOpenStatus = { navController.navigate(Dest.Diagnostics.route) }) }
         composable(Dest.Gaming.route) {
             GamingScreen(
@@ -49,15 +70,19 @@ fun KynoxNavHost(navController: NavHostController, container: AppContainer) {
             )
         }
         composable(Dest.Control.route) {
-            ControlScreen(container, onOpenBattery = { navController.navigate(Dest.Battery.route) })
+            ControlScreen(container, onOpenBattery = { navController.navigate(Dest.Battery.route) }, onBack = { navController.popBackStack() })
         }
         composable(Dest.Monitor.route) { MonitorScreen(container) }
         composable(Dest.Device.route) {
             DeviceHubScreen(container, onNavigate = { dest -> navController.navigate(dest.route) })
         }
+        composable(Dest.More.route) {
+            MoreScreen(container, onNavigate = { dest -> navController.navigate(dest.route) })
+        }
         composable(Dest.Settings.route) {
             SettingsScreen(
                 container,
+                onBack = { navController.popBackStack() },
                 onNavigateAbout = { navController.navigate(Dest.About.route) },
                 onNavigateGaming = { navController.navigate(Dest.Gaming.route) },
                 onNavigateGameLibrary = { navController.navigate(Dest.GameLibrary.route) },
@@ -93,6 +118,7 @@ fun KynoxNavHost(navController: NavHostController, container: AppContainer) {
         composable(Dest.Processes.route) { ProcessesScreen(container, onBack = { navController.popBackStack() }) }
         composable(Dest.RefreshRate.route) { RefreshRateScreen(container, onBack = { navController.popBackStack() }) }
         composable(Dest.Debloat.route) { DebloatScreen(container, onBack = { navController.popBackStack() }) }
+        composable(Dest.AdBlock.route) { com.kynox.gaming.ui.adblock.HostsScreen(container, onBack = { navController.popBackStack() }) }
         composable(Dest.About.route) { AboutScreen(container, onBack = { navController.popBackStack() }) }
         composable(Dest.Automation.route) { AutomationScreen(container, onBack = { navController.popBackStack() }) }
         composable(Dest.Network.route) { NetworkMonitorScreen(container, onBack = { navController.popBackStack() }) }

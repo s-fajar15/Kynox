@@ -257,7 +257,7 @@ class GameDetectionService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.DETECTION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
-            .setColor(0xFF2F6FED.toInt())
+            .setColor(0xFF00696A.toInt())
             .setContentTitle(getString(R.string.notif_detect_title))
             .setContentText(text)
             .setOngoing(false)

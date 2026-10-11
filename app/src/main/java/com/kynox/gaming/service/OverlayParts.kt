@@ -58,6 +58,20 @@ internal fun columnText(label: String, value: String, valueColor: Int = OverlayS
     return sb
 }
 
+/** Satu baris: label kecil redup lalu nilai terang di sampingnya. Jauh lebih tipis daripada [columnText]. */
+internal fun inlineText(label: String, value: String, valueColor: Int = OverlayStyle.TEXT): CharSequence {
+    val sb = SpannableStringBuilder()
+    sb.append(label)
+    sb.setSpan(ForegroundColorSpan(OverlayStyle.MUTED), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    sb.setSpan(RelativeSizeSpan(0.75f), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    sb.append(' ')
+    val start = sb.length
+    sb.append(value)
+    sb.setSpan(ForegroundColorSpan(valueColor), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    return sb
+}
+
 /**
  * Grafik garis kecil untuk riwayat FPS: garis berwarna kondisi, isian gradien
  * tipis, dan satu garis bantu di tengah. Skala sumbu Y kelipatan 30 FPS

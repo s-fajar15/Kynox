@@ -17,6 +17,7 @@ import com.kynox.gaming.data.settings.AppSettings
 import com.kynox.gaming.data.settings.ThemeMode
 import com.kynox.gaming.service.ChargingMonitorService
 import com.kynox.gaming.service.MonitorService
+import com.kynox.gaming.service.RefreshRateService
 import com.kynox.gaming.ui.KynoxApp
 import com.kynox.gaming.ui.splash.SplashScreen
 import com.kynox.gaming.ui.theme.KynoxTheme
@@ -46,6 +47,12 @@ class MainActivity : ComponentActivity() {
             if (startupSettings.monitorEnabled) {
                 MonitorService.start(this@MainActivity)
             }
+            // Refresh rate per app: layanannya hanya jalan bila dihidupkan. Dulu ia
+            // baru dijalankan saat layar Refresh Rate dibuka, jadi setelah reboot atau
+            // proses aplikasi mati saklar tampak ON tetapi tidak berfungsi.
+            try {
+                if (container.refreshRateRepository.isEnabled()) RefreshRateService.start(this@MainActivity)
+            } catch (_: Throwable) { }
         }
         setContent {
             val settings by container.settingsRepository.settingsFlow.collectAsState(initial = AppSettings())

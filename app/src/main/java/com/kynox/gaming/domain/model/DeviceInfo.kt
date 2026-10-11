@@ -25,7 +25,12 @@ data class DeviceInfo(
     val isRooted: Boolean,
     val rootImplementation: String,
     val display: DisplayInfo,
-    val storage: StorageInfo
+    val storage: StorageInfo,
+    /** Nama pasar (mis. "POCO X3 Pro") bila sistem menyimpannya; kosong bila tidak ada. */
+    val marketName: String = "",
+    val buildDisplay: String = "",
+    val board: String = "",
+    val hardware: String = ""
 )
 
 data class DisplayInfo(

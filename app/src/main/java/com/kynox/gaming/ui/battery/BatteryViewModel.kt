@@ -9,6 +9,7 @@ import com.kynox.gaming.domain.model.BatteryInfo
 import com.kynox.gaming.domain.model.CHARGE_LIMIT_DEFAULT_PERCENT
 import com.kynox.gaming.domain.model.ChargeLimitState
 import com.kynox.gaming.domain.model.ChargerInfo
+import com.kynox.gaming.domain.model.FastChargeVerdict
 import com.kynox.gaming.domain.model.FastChargingState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,7 @@ data class BatteryUiState(
     val chargeLimit: ChargeLimitState? = null,
     val chargeLimitEnabled: Boolean = false,
     val chargeLimitPercent: Int = CHARGE_LIMIT_DEFAULT_PERCENT,
+    val verdict: FastChargeVerdict? = null,
     val busy: Boolean = false,
     val message: String? = null
 )
@@ -73,6 +75,16 @@ class BatteryViewModel(
         }
     }
 
+    /** Setelah perubahan: segarkan status, lalu (bila baru dinyalakan) periksa hasil nyatanya. */
+    private suspend fun finishFastChargeChange(verify: Boolean) {
+        _uiState.value = _uiState.value.copy(fastCharging = repository.fastChargingState(), verdict = null)
+        if (verify) {
+            val v = repository.verifyFastCharging(_uiState.value.targetMa)
+            _uiState.value = _uiState.value.copy(verdict = v)
+        }
+        _uiState.value = _uiState.value.copy(busy = false, fastCharging = repository.fastChargingState())
+    }
+
     fun setTargetMa(value: Int) {
         _uiState.value = _uiState.value.copy(targetMa = value)
     }
@@ -90,7 +102,7 @@ class BatteryViewModel(
                 repository.restoreFastCharging()
             }
             result.onFailure { _uiState.value = _uiState.value.copy(message = it) }
-            _uiState.value = _uiState.value.copy(busy = false, fastCharging = repository.fastChargingState())
+            finishFastChargeChange(enabled && result is com.kynox.gaming.core.utils.AppResult.Success)
         }
     }
 
@@ -100,7 +112,8 @@ class BatteryViewModel(
             val advanced = _uiState.value.fastCharging?.advancedActive ?: false
             val result = repository.applyFastCharging(_uiState.value.targetMa, includeAdvanced = advanced)
             result.onFailure { _uiState.value = _uiState.value.copy(message = it) }
-            _uiState.value = _uiState.value.copy(busy = false, showCustomInput = false, fastCharging = repository.fastChargingState())
+            _uiState.value = _uiState.value.copy(showCustomInput = false)
+            finishFastChargeChange(result is com.kynox.gaming.core.utils.AppResult.Success)
         }
     }
 
@@ -109,7 +122,7 @@ class BatteryViewModel(
             _uiState.value = _uiState.value.copy(busy = true)
             val result = repository.applyFastCharging(_uiState.value.targetMa, includeAdvanced = enabled)
             result.onFailure { _uiState.value = _uiState.value.copy(message = it) }
-            _uiState.value = _uiState.value.copy(busy = false, fastCharging = repository.fastChargingState())
+            finishFastChargeChange(result is com.kynox.gaming.core.utils.AppResult.Success)
         }
     }
 

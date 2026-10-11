@@ -74,11 +74,11 @@ fun MonitorScreen(container: AppContainer) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    Scaffold(topBar = { KynoxTopBar(title = "Performa", subtitle = "Pantau kinerja perangkat secara real-time.") }) { padding ->
+    Scaffold(topBar = { KynoxTopBar(title = "Performa") }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 104.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (!state.recording) {
                 item { MonitorOffCard { scope.launch { container.settingsRepository.setMonitorEnabled(true) }; MonitorService.start(context) } }
@@ -104,9 +104,7 @@ fun MonitorScreen(container: AppContainer) {
 
 @Composable
 private fun MonitorOffCard(onEnable: () -> Unit) {
-    SectionCard("Monitor tidak aktif") {
-        Text("Aktifkan monitor agar grafik dan statistik terus diperbarui di latar belakang.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(10.dp))
+    SectionCard("Monitor tidak aktif", info = "Aktifkan monitor agar grafik dan statistik terus diperbarui di latar belakang.") {
         KButton(onClick = onEnable) { Text("Aktifkan monitor") }
     }
 }
@@ -114,7 +112,7 @@ private fun MonitorOffCard(onEnable: () -> Unit) {
 @Composable
 private fun MetricTabs(selected: Int, gpuSupported: Boolean, onSelected: (Int) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().kynoxCard(KynoxShapes.pill).padding(5.dp),
+        Modifier.fillMaxWidth().kynoxCard(KynoxShapes.section).padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         MetricTab.entries.forEachIndexed { index, tab ->
@@ -122,7 +120,7 @@ private fun MetricTabs(selected: Int, gpuSupported: Boolean, onSelected: (Int) -
             val active = index == selected
             Box(
                 Modifier.weight(1f).clip(KynoxShapes.pill)
-                    .then(if (active) Modifier.background(KynoxBrushes.accent) else Modifier)
+                    .then(if (active) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier)
                     .heightIn(min = 48.dp)
                     .clickable(role = Role.Tab) { onSelected(index) }
                     .padding(vertical = 11.dp),
@@ -132,7 +130,7 @@ private fun MetricTabs(selected: Int, gpuSupported: Boolean, onSelected: (Int) -
                     tab.label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (active) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -156,9 +154,9 @@ private fun PerformanceHero(state: MonitorUiState, tab: MetricTab) {
         MetricTab.BATTERY -> sample?.powerWatts?.let { (it / 8f * 100f).coerceIn(0f, 100f) }
     } ?: 0f
     val label = when (tab) {
-        MetricTab.CPU -> "CPU Usage"
-        MetricTab.GPU -> "GPU Usage"
-        MetricTab.RAM -> "RAM Usage"
+        MetricTab.CPU -> "Beban CPU"
+        MetricTab.GPU -> "Beban GPU"
+        MetricTab.RAM -> "Pemakaian RAM"
         MetricTab.BATTERY -> "Daya"
     }
     val wave = state.samples.takeLast(60).mapNotNull { metricValue(it, tab) }
@@ -270,12 +268,12 @@ private fun HistoryCard(state: MonitorUiState, tab: MetricTab, viewModel: Monito
                 if (state.paused) "Lanjutkan" else "Jeda",
                 style = MaterialTheme.typography.labelMedium,
                 color = if (state.paused) StatusWarning else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { viewModel.togglePause() }.padding(horizontal = 10.dp, vertical = 14.dp)
+                modifier = Modifier.heightIn(min = 48.dp).clip(KynoxShapes.chip).clickable(role = Role.Button) { viewModel.togglePause() }.padding(horizontal = 10.dp, vertical = 14.dp)
             )
         }
     ) {
         if (points.size >= 2) {
-            ReportChart(points = points, totalMs = windowMs, yMin = low, yMax = high, lineColor = KynoxAccentDark, height = 150.dp, xLabels = listOf("-${formatAxisTime(windowMs)}", "-${formatAxisTime(windowMs / 2)}", "sekarang"))
+            ReportChart(points = points, totalMs = windowMs, yMin = low, yMax = high, lineColor = MaterialTheme.colorScheme.primary, height = 150.dp, xLabels = listOf("-${formatAxisTime(windowMs)}", "-${formatAxisTime(windowMs / 2)}", "sekarang"))
         } else {
             Text("Mengumpulkan data…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -288,7 +286,7 @@ private fun HistoryCard(state: MonitorUiState, tab: MetricTab, viewModel: Monito
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Tab) { viewModel.setWindow(seconds) }.padding(vertical = 14.dp, horizontal = 4.dp)
+                    modifier = Modifier.heightIn(min = 48.dp).clip(KynoxShapes.chip).clickable(role = Role.Tab) { viewModel.setWindow(seconds) }.padding(vertical = 14.dp, horizontal = 4.dp)
                 )
             }
         }

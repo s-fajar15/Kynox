@@ -9,6 +9,11 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import com.kynox.gaming.domain.model.DEFAULT_OVERLAY_ORDER
+import com.kynox.gaming.domain.model.OverlayMetric
+import com.kynox.gaming.domain.model.moveInOrder
+import com.kynox.gaming.domain.model.parseOverlayOrder
+import com.kynox.gaming.domain.model.serializeOverlayOrder
 
 private val Context.dataStore by preferencesDataStore(name = "kynox_settings")
 
@@ -16,7 +21,7 @@ enum class ThemeMode { DARK, LIGHT, SYSTEM }
 enum class TemperatureUnit { CELSIUS, FAHRENHEIT }
 
 data class AppSettings(
-    val themeMode: ThemeMode = ThemeMode.DARK,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val refreshIntervalMs: Long = 1500L,
     val temperatureUnit: TemperatureUnit = TemperatureUnit.CELSIUS,
     val applyOnBoot: Boolean = false,
@@ -29,6 +34,10 @@ data class AppSettings(
     val overlayShowCpu: Boolean = true,
     val overlayShowGpu: Boolean = true,
     val overlayShowBatteryTemp: Boolean = true,
+    val overlayShowCpuTemp: Boolean = false,
+    val overlayShowRam: Boolean = false,
+    val overlayShowPower: Boolean = false,
+    val overlayOrder: String = DEFAULT_OVERLAY_ORDER,
     val overlayScalePercent: Int = 100,
     val overlayOpacityPercent: Int = 95,
     val monitorEnabled: Boolean = true,
@@ -81,6 +90,10 @@ class SettingsRepository(private val context: Context) {
         val OVERLAY_SHOW_CPU = booleanPreferencesKey("overlay_show_cpu")
         val OVERLAY_SHOW_GPU = booleanPreferencesKey("overlay_show_gpu")
         val OVERLAY_SHOW_BATTERY_TEMP = booleanPreferencesKey("overlay_show_battery_temp")
+        val OVERLAY_SHOW_CPU_TEMP = booleanPreferencesKey("overlay_show_cpu_temp")
+        val OVERLAY_SHOW_RAM = booleanPreferencesKey("overlay_show_ram")
+        val OVERLAY_SHOW_POWER = booleanPreferencesKey("overlay_show_power")
+        val OVERLAY_ORDER = stringPreferencesKey("overlay_order")
         val OVERLAY_SCALE = intPreferencesKey("overlay_scale_percent")
         val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity_percent")
         val MONITOR_ENABLED = booleanPreferencesKey("monitor_enabled")
@@ -97,7 +110,7 @@ class SettingsRepository(private val context: Context) {
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         AppSettings(
-            themeMode = prefs[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+            themeMode = prefs[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
             refreshIntervalMs = (prefs[Keys.REFRESH_MS] ?: 1500).toLong(),
             temperatureUnit = prefs[Keys.TEMP_UNIT]?.let { runCatching { TemperatureUnit.valueOf(it) }.getOrNull() } ?: TemperatureUnit.CELSIUS,
             applyOnBoot = prefs[Keys.APPLY_ON_BOOT] ?: false,
@@ -110,6 +123,10 @@ class SettingsRepository(private val context: Context) {
             overlayShowCpu = prefs[Keys.OVERLAY_SHOW_CPU] ?: true,
             overlayShowGpu = prefs[Keys.OVERLAY_SHOW_GPU] ?: true,
             overlayShowBatteryTemp = prefs[Keys.OVERLAY_SHOW_BATTERY_TEMP] ?: true,
+            overlayShowCpuTemp = prefs[Keys.OVERLAY_SHOW_CPU_TEMP] ?: false,
+            overlayShowRam = prefs[Keys.OVERLAY_SHOW_RAM] ?: false,
+            overlayShowPower = prefs[Keys.OVERLAY_SHOW_POWER] ?: false,
+            overlayOrder = serializeOverlayOrder(parseOverlayOrder(prefs[Keys.OVERLAY_ORDER])),
             overlayScalePercent = (prefs[Keys.OVERLAY_SCALE] ?: 100).coerceIn(OVERLAY_SCALE_MIN, OVERLAY_SCALE_MAX),
             overlayOpacityPercent = (prefs[Keys.OVERLAY_OPACITY] ?: 95).coerceIn(OVERLAY_OPACITY_MIN, 100),
             monitorEnabled = prefs[Keys.MONITOR_ENABLED] ?: true,
@@ -166,6 +183,28 @@ class SettingsRepository(private val context: Context) {
             it[Keys.OVERLAY_SHOW_CPU] = showCpu
             it[Keys.OVERLAY_SHOW_GPU] = showGpu
             it[Keys.OVERLAY_SHOW_BATTERY_TEMP] = showBatteryTemp
+        }
+    }
+
+    /** Menyalakan/mematikan satu metrik overlay cepat. */
+    suspend fun setOverlayMetricEnabled(metric: OverlayMetric, enabled: Boolean) {
+        context.dataStore.edit {
+            when (metric) {
+                OverlayMetric.FPS -> it[Keys.OVERLAY_SHOW_FPS] = enabled
+                OverlayMetric.CPU -> it[Keys.OVERLAY_SHOW_CPU] = enabled
+                OverlayMetric.GPU -> it[Keys.OVERLAY_SHOW_GPU] = enabled
+                OverlayMetric.CPU_TEMP -> it[Keys.OVERLAY_SHOW_CPU_TEMP] = enabled
+                OverlayMetric.RAM -> it[Keys.OVERLAY_SHOW_RAM] = enabled
+                OverlayMetric.POWER -> it[Keys.OVERLAY_SHOW_POWER] = enabled
+                OverlayMetric.BATTERY_TEMP -> it[Keys.OVERLAY_SHOW_BATTERY_TEMP] = enabled
+            }
+        }
+    }
+
+    suspend fun moveOverlayMetric(metric: OverlayMetric, delta: Int) {
+        context.dataStore.edit {
+            val current = parseOverlayOrder(it[Keys.OVERLAY_ORDER])
+            it[Keys.OVERLAY_ORDER] = serializeOverlayOrder(moveInOrder(current, metric, delta))
         }
     }
 
@@ -255,3 +294,17 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it.clear() }
     }
 }
+
+fun AppSettings.isOverlayMetricOn(metric: OverlayMetric): Boolean = when (metric) {
+    OverlayMetric.FPS -> overlayShowFps
+    OverlayMetric.CPU -> overlayShowCpu
+    OverlayMetric.GPU -> overlayShowGpu
+    OverlayMetric.CPU_TEMP -> overlayShowCpuTemp
+    OverlayMetric.RAM -> overlayShowRam
+    OverlayMetric.POWER -> overlayShowPower
+    OverlayMetric.BATTERY_TEMP -> overlayShowBatteryTemp
+}
+
+/** Metrik overlay yang aktif, berurutan sesuai pilihan pengguna. */
+fun AppSettings.enabledOverlayMetrics(): List<OverlayMetric> =
+    parseOverlayOrder(overlayOrder).filter { isOverlayMetricOn(it) }

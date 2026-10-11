@@ -71,7 +71,7 @@ fun GameLibraryScreen(container: AppContainer, onBack: () -> Unit) {
                 return@Column
             }
 
-            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
+            LazyColumn(contentPadding = com.kynox.gaming.ui.components.KynoxListPadding, verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing) {
                 items(filtered, key = { it.packageName }) { app ->
                     GameRow(
                         app,

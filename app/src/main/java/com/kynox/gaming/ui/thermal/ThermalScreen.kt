@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,9 +60,10 @@ fun ThermalScreen(container: AppContainer, onBack: () -> Unit) {
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.thermal_manager_title), onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing
         ) {
+            item(key = "summary") { ThermalSummary(state) }
             item {
                 ThermalEngineCard(
                     state = state,
@@ -84,6 +85,44 @@ fun ThermalScreen(container: AppContainer, onBack: () -> Unit) {
             onConfirm = { showConfirm = false; viewModel.disableThermal() },
             onDismiss = { showConfirm = false }
         )
+    }
+}
+
+/** Ringkasan: suhu sensor tertinggi + keadaan pengaman termal (pil). Nilai hanya dari sensor yang terbaca. */
+@Composable
+private fun ThermalSummary(state: ThermalUiState) {
+    val hottest = state.zones.mapNotNull { it.temperatureCelsius }.maxOrNull()
+    val mode = state.disableState?.mode ?: ThermalEngineMode.ACTIVE
+    com.kynox.gaming.ui.components.SummaryCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Suhu sensor tertinggi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            if (state.disableState?.supported == true) {
+                com.kynox.gaming.ui.components.TonalPill(
+                    when (mode) {
+                        ThermalEngineMode.ACTIVE -> stringResource(R.string.thermal_pill_active)
+                        ThermalEngineMode.DISABLED -> stringResource(R.string.status_disabled)
+                        ThermalEngineMode.PARTIAL -> stringResource(R.string.thermal_pill_partial)
+                    },
+                    container = MaterialTheme.colorScheme.onPrimaryContainer,
+                    content = MaterialTheme.colorScheme.primaryContainer
+                )
+            }
+        }
+        Row(Modifier.padding(top = 4.dp)) {
+            Text(
+                hottest?.let { "%.0f".format(it) } ?: "--",
+                style = MaterialTheme.typography.displayLarge,
+                maxLines = 1,
+                modifier = Modifier.alignByBaseline()
+            )
+            Text(
+                "°C",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 4.dp).alignByBaseline()
+            )
+        }
+        Text("${state.zones.size} sensor terbaca", style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -116,9 +155,11 @@ private fun ThermalEngineCard(state: ThermalUiState, onDisable: () -> Unit, onRe
     SectionCard(
         title = stringResource(R.string.thermal_engine_title),
         trailing = {
-            if (supported) {
+            if (disableState != null && !supported) {
+                com.kynox.gaming.ui.components.UnsupportedPill()
+            } else if (supported) {
                 when (mode) {
-                    ThermalEngineMode.ACTIVE -> StatusPill(stringResource(R.string.thermal_pill_active), StatusGood)
+                    ThermalEngineMode.ACTIVE -> Unit
                     ThermalEngineMode.DISABLED -> StatusPill(stringResource(R.string.status_disabled), StatusDanger)
                     ThermalEngineMode.PARTIAL -> StatusPill(stringResource(R.string.thermal_pill_partial), StatusWarning)
                 }
@@ -128,7 +169,7 @@ private fun ThermalEngineCard(state: ThermalUiState, onDisable: () -> Unit, onRe
         if (disableState == null) {
             Text(stringResource(R.string.common_checking_compat), style = MaterialTheme.typography.bodyMedium)
         } else if (!supported) {
-            Text(disableState.reason, style = MaterialTheme.typography.bodyMedium)
+            com.kynox.gaming.ui.components.UnsupportedNotice(disableState.reason)
         } else {
             val color = when (mode) {
                 ThermalEngineMode.ACTIVE -> StatusGood
@@ -146,12 +187,10 @@ private fun ThermalEngineCard(state: ThermalUiState, onDisable: () -> Unit, onRe
                 ThermalEngineMode.PARTIAL -> stringResource(R.string.thermal_sub_partial)
             }
 
-            Row(verticalAlignment = Alignment.Top) {
-                Box(Modifier.padding(top = 6.dp).size(10.dp).background(color, CircleShape))
-                Column(Modifier.padding(start = 10.dp)) {
-                    Text(headline, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
-                    Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            // Keadaan dibaca dari teks judulnya (tidak hanya warna); tanpa titik hias.
+            Column(Modifier.padding(top = 12.dp)) {
+                Text(headline, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(10.dp))
             if (disableState.controlsTotal > 0) {

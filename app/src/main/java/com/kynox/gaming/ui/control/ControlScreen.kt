@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -75,11 +76,12 @@ private enum class ControlTab(val labelRes: Int) {
 @Composable
 fun ControlScreen(
     container: AppContainer,
-    onOpenBattery: () -> Unit
+    onOpenBattery: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     var tab by remember { mutableStateOf(ControlTab.CPU) }
 
-    Scaffold(topBar = { KynoxTopBar(title = stringResource(R.string.control_title)) }) { padding ->
+    Scaffold(topBar = { com.kynox.gaming.ui.components.DetailTopBar(title = stringResource(R.string.control_title), onBack = onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             ControlTabRow(selected = tab, onSelect = { tab = it })
             when (tab) {
@@ -95,7 +97,7 @@ fun ControlScreen(
 @Composable
 private fun ControlTabRow(selected: ControlTab, onSelect: (ControlTab) -> Unit) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(ControlTab.values().toList()) { entry ->
@@ -104,10 +106,12 @@ private fun ControlTabRow(selected: ControlTab, onSelect: (ControlTab) -> Unit) 
             val fg = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             Box(
                 Modifier
+                    .heightIn(min = 48.dp)
                     .clip(KynoxShapes.control)
                     .background(bg)
-                    .clickable { onSelect(entry) }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onSelect(entry) }
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(stringResource(entry.labelRes), style = MaterialTheme.typography.labelLarge, color = fg)
             }
@@ -140,8 +144,8 @@ private fun CpuControlTab(container: AppContainer) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             SectionCard(title = stringResource(R.string.control_cpu_management)) {
@@ -206,13 +210,15 @@ private fun GpuControlTab(container: AppContainer) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             SectionCard(title = stringResource(R.string.dashboard_gpu)) {
                 if (gpu?.supported != true) {
-                    Text(gpu?.reason ?: stringResource(R.string.common_loading), style = MaterialTheme.typography.bodyMedium)
+                    val gpuNow = gpu
+                    if (gpuNow != null) com.kynox.gaming.ui.components.UnsupportedNotice(gpuNow.reason)
+                    else Text(stringResource(R.string.common_loading), style = MaterialTheme.typography.bodyMedium)
                 } else {
                     val state = gpu!!
                     MetricRow(stringResource(R.string.field_current_freq), state.currentFreqKhz?.let { "${gpuFreqMhz(it)} MHz" } ?: unknown)
@@ -247,8 +253,8 @@ private fun ThermalControlTab(container: AppContainer) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             SectionCard(
@@ -302,8 +308,8 @@ private fun BatteryControlTab(container: AppContainer, onOpenBattery: () -> Unit
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             SectionCard(title = stringResource(R.string.dashboard_battery)) {

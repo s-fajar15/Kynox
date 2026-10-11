@@ -46,7 +46,7 @@ class AppContainer(context: Context) {
     val logRepository = LogRepository(context)
     val settingsRepository = SettingsRepository(context)
 
-    val deviceInfoRepository = DeviceInfoRepository(context, capabilityEngine, rootRepository)
+    val deviceInfoRepository = DeviceInfoRepository(context, capabilityEngine, rootRepository, rootExecutor)
     val cpuRepository = CpuRepository(capabilityEngine, rootRepository, rootExecutor, logRepository)
     val gpuRepository = GpuRepository(capabilityEngine, rootRepository, rootExecutor, logRepository)
     val thermalRepository = ThermalRepository(capabilityEngine, rootRepository, rootExecutor, backupStore, logRepository)
@@ -71,5 +71,6 @@ class AppContainer(context: Context) {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     )
     val thermalWarner = ThermalWarner(notifyThrottle)
+    val hostsRepository = com.kynox.gaming.data.adblock.HostsRepository(context, rootExecutor, logRepository)
     val debloatRepository = com.kynox.gaming.data.debloat.DebloatRepository(context, rootExecutor, logRepository)
 }

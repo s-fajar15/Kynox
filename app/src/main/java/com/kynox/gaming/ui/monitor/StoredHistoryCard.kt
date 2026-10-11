@@ -135,7 +135,7 @@ internal fun StoredHistoryCard(container: AppContainer, tabIndex: Int, unit: Str
                     color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .heightIn(min = 48.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(com.kynox.gaming.ui.theme.KynoxShapes.chip)
                         .clickable(role = Role.Tab) { vm.load(hours) }
                         .padding(horizontal = 12.dp, vertical = 12.dp)
                 )
@@ -160,7 +160,7 @@ internal fun StoredHistoryCard(container: AppContainer, tabIndex: Int, unit: Str
             val (low, high) = if (tabIndex == 3) zeroBasedRange(points.map { it.y }) else 0f to 100f
             ReportChart(
                 points = points, totalMs = total, yMin = low, yMax = high,
-                lineColor = KynoxAccentDark, height = 140.dp,
+                lineColor = MaterialTheme.colorScheme.primary, height = 140.dp,
                 xLabels = listOf(clock(shown.first().tMs), clock(shown[shown.size / 2].tMs), clock(shown.last().tMs))
             )
             Spacer(Modifier.height(10.dp))

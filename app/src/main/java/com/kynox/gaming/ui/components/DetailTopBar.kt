@@ -1,13 +1,12 @@
 package com.kynox.gaming.ui.components
 
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Icon
@@ -18,12 +17,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kynox.gaming.R
 import com.kynox.gaming.ui.theme.KynoxIcons
 
+/**
+ * Bar atas. Tanpa [navigationIcon]: judul layar tingkat atas 26/700 (tab Beranda, Perangkat, Lainnya).
+ * Dengan [navigationIcon]: layar detail (tombol kembali + judul), tanpa bottom bar.
+ * Tanpa garis pemisah dan tanpa bayangan; latar mengikuti latar layar.
+ */
 @Composable
 fun KynoxTopBar(
     title: String,
@@ -33,16 +36,18 @@ fun KynoxTopBar(
     leading: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
+    val topLevel = navigationIcon == null
     Column(
         modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
         Row(
-            Modifier.fillMaxWidth()
-                .then(if (navigationIcon == null) Modifier.heightIn(min = 84.dp).padding(top = 6.dp, bottom = 4.dp) else Modifier.height(66.dp))
-                .padding(start = if (navigationIcon == null) 20.dp else 6.dp, end = 16.dp),
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .padding(start = if (topLevel) 20.dp else 8.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             navigationIcon?.invoke()
@@ -53,31 +58,24 @@ fun KynoxTopBar(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = if (navigationIcon == null) MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-                    else MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = if (topLevel) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = if (navigationIcon == null) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
+            // Subjudul tidak tampil terus: penjelasannya dibuka lewat ikon (i).
+            if (subtitle != null) InfoButton(subtitle, title = title)
             actions()
         }
     }
 }
 
 @Composable
-fun DetailTopBar(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}) {
+fun DetailTopBar(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, info: String? = null) {
     KynoxTopBar(
         title = title,
+        subtitle = info,
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(KynoxIcons.Back, contentDescription = stringResource(R.string.cd_back))

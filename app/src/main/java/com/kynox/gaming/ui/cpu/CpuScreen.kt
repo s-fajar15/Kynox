@@ -65,7 +65,7 @@ fun CpuScreen(container: AppContainer, onBack: () -> Unit) {
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.cpu_manager_title), onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val cores = snapshot?.cores ?: emptyList()
@@ -98,11 +98,9 @@ private fun CoreCard(core: CpuCoreState, onGovernorSelected: (String) -> Unit, o
     val unknown = stringResource(R.string.common_unknown)
     SectionCard(
         title = stringResource(R.string.core_title, core.core),
+        // Status hanya ditampilkan bila ada yang perlu diperhatikan: core yang sedang offline.
         trailing = {
-            StatusPill(
-                text = if (core.online != false) stringResource(R.string.status_online) else stringResource(R.string.status_offline),
-                color = if (core.online != false) StatusGood else StatusWarning
-            )
+            if (core.online == false) StatusPill(text = stringResource(R.string.status_offline), color = StatusWarning)
         }
     ) {
         MetricRow(stringResource(R.string.field_current_freq), core.currentFreqKhz?.let { "${it / 1000} MHz" } ?: unknown)
@@ -125,27 +123,27 @@ private fun CoreCard(core: CpuCoreState, onGovernorSelected: (String) -> Unit, o
                 onSelected = onGovernorSelected
             )
             if (!core.canWriteGovernor) {
-                Text(stringResource(R.string.governor_readonly_warning), style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                com.kynox.gaming.ui.components.UnsupportedNotice(
+                    "Governor hanya bisa dibaca di kernel ini. " + stringResource(R.string.governor_readonly_warning)
+                )
             }
         } else {
             MetricRow(stringResource(R.string.field_governor), core.governor ?: unknown)
+            com.kynox.gaming.ui.components.UnsupportedNotice("Kernel tidak menyediakan daftar governor untuk core ini, jadi governor tidak bisa diubah.")
         }
         if (core.online != null) {
-            Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.field_core_online),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(checked = core.online, onCheckedChange = onOnlineToggle, enabled = core.canToggleOnline)
-            }
+            com.kynox.gaming.ui.components.KynoxSwitchRow(
+                title = stringResource(R.string.field_core_online),
+                checked = core.online,
+                onCheckedChange = onOnlineToggle,
+                enabled = core.canToggleOnline
+            )
             if (!core.canToggleOnline && core.core == 0) {
                 Text(
                     stringResource(R.string.core_zero_warning),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
         }

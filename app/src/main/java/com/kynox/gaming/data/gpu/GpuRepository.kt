@@ -31,7 +31,7 @@ class GpuRepository(
 
     suspend fun readState(): GpuState = withContext(Dispatchers.IO) {
         val base = capabilityEngine.kgslBasePath()
-            ?: return@withContext unsupported("Not supported by this kernel.")
+            ?: return@withContext unsupported("Kernel tidak mendukung kontrol GPU ini (node kgsl tidak ditemukan).")
 
         val devfreq = "$base/devfreq"
         val rootAvailable = rootRepository.current().isAvailable
@@ -58,7 +58,7 @@ class GpuRepository(
         val temp = values["$base/temp"]?.toFloatOrNull()?.let { normalizeSensorTemperature(it, treatZeroAsMissing = true) }
 
         if (curFreq == null && governor == null) {
-            return@withContext unsupported("Not supported by this kernel.")
+            return@withContext unsupported("Kernel tidak mendukung kontrol GPU ini (node kgsl tidak ditemukan).")
         }
 
         val governorPath = "$devfreq/governor"
@@ -81,7 +81,7 @@ class GpuRepository(
 
     /** VALIDATE (against this GPU's own `available_governors`) -> APPLY -> VERIFY (readback), same discipline as CpuRepository.setGovernor. */
     suspend fun setGovernor(governor: String): AppResult<Unit> = withContext(Dispatchers.IO) {
-        val base = capabilityEngine.kgslBasePath() ?: return@withContext AppResult.Failure("Not supported by this kernel.")
+        val base = capabilityEngine.kgslBasePath() ?: return@withContext AppResult.Failure("Kernel tidak mendukung kontrol GPU ini (node kgsl tidak ditemukan).")
         val rootAvailable = rootRepository.current().isAvailable
         val path = "$base/devfreq/governor"
         if (!SysfsAccess.existsWithRoot(path, rootAvailable, rootExecutor)) return@withContext AppResult.Failure("Governor control not available")
@@ -97,7 +97,7 @@ class GpuRepository(
         val verified = result.isSuccess &&
             SysfsAccess.readWithRoot(path, rootAvailable, rootExecutor)?.trim()?.equals(governor, ignoreCase = true) == true
         val failure = when {
-            !result.isSuccess -> result.stderr.ifBlank { "Write failed" }
+            !result.isSuccess -> result.stderr.ifBlank { "Write failed (exit ${result.exitCode})" }
             !verified -> "write reported success but readback did not match"
             else -> null
         }
@@ -110,7 +110,7 @@ class GpuRepository(
 
     /** VALIDATE (against this GPU's own `available_frequencies`) -> APPLY -> VERIFY (readback). The max advertised by the kernel is not assumed safe on its own -- only membership in the device's own table is trusted. */
     suspend fun setMaxFreq(maxKhz: Int): AppResult<Unit> = withContext(Dispatchers.IO) {
-        val base = capabilityEngine.kgslBasePath() ?: return@withContext AppResult.Failure("Not supported by this kernel.")
+        val base = capabilityEngine.kgslBasePath() ?: return@withContext AppResult.Failure("Kernel tidak mendukung kontrol GPU ini (node kgsl tidak ditemukan).")
         val rootAvailable = rootRepository.current().isAvailable
         val path = "$base/devfreq/max_freq"
         if (!SysfsAccess.existsWithRoot(path, rootAvailable, rootExecutor)) return@withContext AppResult.Failure("Frequency control not available")
@@ -130,7 +130,7 @@ class GpuRepository(
         val verified = result.isSuccess &&
             SysfsAccess.readWithRoot(path, rootAvailable, rootExecutor)?.trim()?.toIntOrNull() == maxKhz
         val failure = when {
-            !result.isSuccess -> result.stderr.ifBlank { "Write failed" }
+            !result.isSuccess -> result.stderr.ifBlank { "Write failed (exit ${result.exitCode})" }
             !verified -> "write reported success but readback did not match"
             else -> null
         }

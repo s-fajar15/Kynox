@@ -25,10 +25,14 @@ object RootDetector {
         "/system/bin/.ext/su"
     )
 
-    suspend fun detect(): RootStatus = withContext(Dispatchers.IO) {
+    /**
+     * [runRoot] menjalankan perintah lewat shell root yang sudah terbuka (satu proses su), jadi
+     * deteksi tidak lagi memanggil `su` berkali-kali dan tidak memicu notifikasi superuser berulang.
+     */
+    suspend fun detect(runRoot: suspend (String, Long) -> Pair<Boolean, String>): RootStatus = withContext(Dispatchers.IO) {
         val suOnPath = COMMON_SU_PATHS.any { File(it).exists() } || probe("which su").isNotBlank()
 
-        val idResult = exec("su -c id", 4000L)
+        val idResult = runRoot("id", 6000L)
         if (!idResult.first || !idResult.second.contains("uid=0")) {
             return@withContext RootStatus(
                 isAvailable = false,
@@ -38,15 +42,18 @@ object RootDetector {
             )
         }
 
-        val provider = when {
-            exec("su -c '[ -d /data/adb/magisk ]'", 3000L).first -> RootProvider.MAGISK
-            probe("su -c getprop ro.build.version.magisk.version").isNotBlank() -> RootProvider.MAGISK
-            exec("su -c '[ -e /data/adb/ksu ] || which ksud'", 3000L).first -> RootProvider.KERNELSU
-            exec("su -c '[ -d /data/adb/ap ] || which apd'", 3000L).first -> RootProvider.APATCH
+        // APatch/KernelSU dicek lebih dulu: sisa folder Magisk di /data/adb bisa tertinggal dan menimbulkan salah deteksi.
+        val providerCommand = "if [ -d /data/adb/ap ] || which apd >/dev/null 2>&1; then echo APATCH; " +
+            "elif [ -e /data/adb/ksu ] || which ksud >/dev/null 2>&1; then echo KERNELSU; " +
+            "elif [ -d /data/adb/magisk ] || [ -n \"\$(getprop ro.build.version.magisk.version)\" ]; then echo MAGISK; else echo UNKNOWN; fi"
+        val provider = when (runRoot(providerCommand, 4000L).second.trim()) {
+            "MAGISK" -> RootProvider.MAGISK
+            "KERNELSU" -> RootProvider.KERNELSU
+            "APATCH" -> RootProvider.APATCH
             else -> RootProvider.UNKNOWN
         }
 
-        val version = probe("su -v").ifBlank { probe("su -c su -v") }
+        val version = runRoot("su -v 2>/dev/null", 3000L).second.trim()
 
         Logger.i(TAG, "Detected root provider=$provider version=$version")
         RootStatus(

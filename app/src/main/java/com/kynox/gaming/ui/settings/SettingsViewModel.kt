@@ -26,6 +26,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun setOverlayMetric(showFps: Boolean, showCpu: Boolean, showGpu: Boolean, showBatteryTemp: Boolean) {
         viewModelScope.launch { repository.setOverlayMetric(showFps, showCpu, showGpu, showBatteryTemp) }
     }
+    fun setOverlayMetricEnabled(metric: com.kynox.gaming.domain.model.OverlayMetric, enabled: Boolean) {
+        viewModelScope.launch { repository.setOverlayMetricEnabled(metric, enabled) }
+    }
+    fun moveOverlayMetric(metric: com.kynox.gaming.domain.model.OverlayMetric, delta: Int) {
+        viewModelScope.launch { repository.moveOverlayMetric(metric, delta) }
+    }
     fun setOverlayStyle(scalePercent: Int, opacityPercent: Int) {
         viewModelScope.launch { repository.setOverlayStyle(scalePercent, opacityPercent) }
     }

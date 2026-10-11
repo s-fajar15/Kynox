@@ -135,7 +135,7 @@ class FpsOverlay(
             view.visibility = View.GONE
         } else {
             view.visibility = View.VISIBLE
-            view.text = columnText(label, value)
+            view.text = inlineText(label, value)
         }
     }
 
@@ -160,11 +160,11 @@ class FpsOverlay(
         }
 
         // Strip tipis: garis kondisi | FPS | grafik | kolom CPU, GPU, PWR.
-        val condensedBold = Typeface.create("sans-serif-condensed", Typeface.BOLD_ITALIC)
+        val condensedBold = Typeface.create("sans-serif-medium", Typeface.BOLD)
         val number = TextView(appContext).apply {
             text = "--"
             setTextColor(OverlayStyle.MUTED)
-            textSize = 22f * scaleNow
+            textSize = 15f * scaleNow
             typeface = condensedBold
             includeFontPadding = false
             gravity = Gravity.START
@@ -173,18 +173,19 @@ class FpsOverlay(
         val unit = TextView(appContext).apply {
             text = "FPS"
             setTextColor(OverlayStyle.ACCENT)
-            textSize = 8f * scaleNow
-            typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
-            letterSpacing = 0.25f
+            textSize = 7f * scaleNow
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            letterSpacing = 0f
             includeFontPadding = false
             gravity = Gravity.START
         }
+        // Angka dan satuan sejajar dalam satu baris (dulu bertumpuk), supaya strip jauh lebih tipis.
         val left = LinearLayout(appContext).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.START
-            minimumWidth = dp(32)
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.BOTTOM
+            minimumWidth = dp(30)
             addView(number, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(unit, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(unit, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(3); bottomMargin = dp(1) })
         }
         val stripe = View(appContext).apply {
             background = GradientDrawable().apply {
@@ -195,10 +196,9 @@ class FpsOverlay(
         val graph = SparklineView(appContext)
         val divider = View(appContext).apply { setBackgroundColor(OverlayStyle.DIVIDER) }
         fun column(): TextView = TextView(appContext).apply {
-            textSize = 12f * scaleNow
-            typeface = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
+            textSize = 11f * scaleNow
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             includeFontPadding = false
-            setLineSpacing(0f, 1.05f)
             setTextColor(OverlayStyle.TEXT)
             visibility = View.GONE
         }
@@ -209,28 +209,28 @@ class FpsOverlay(
         val timer = TextView(appContext).apply {
             text = "00:00"
             setTextColor(OverlayStyle.MUTED)
-            textSize = 11f * scaleNow
-            typeface = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
+            textSize = 10f * scaleNow
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
         val stop = FrameLayout(appContext).apply {
-            background = OverlayStyle.stopBackground(dp(3).toFloat())
+            background = OverlayStyle.stopBackground(dp(8).toFloat())
             val square = View(appContext).apply {
                 background = GradientDrawable().apply {
                     cornerRadius = dp(1).toFloat()
                     setColor(Color.WHITE)
                 }
             }
-            addView(square, FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER))
+            addView(square, FrameLayout.LayoutParams(dp(6), dp(6), Gravity.CENTER))
             setOnClickListener { onStop() }
         }
         val controls = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(3), 0, 0)
             addView(timer, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(sizeButton("\u2212", -OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginStart = dp(8) })
-            addView(sizeButton("+", OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginStart = dp(6) })
-            addView(stop, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginStart = dp(10) })
+            addView(sizeButton("\u2212", -OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginStart = dp(6) })
+            addView(sizeButton("+", OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginStart = dp(5) })
+            addView(stop, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginStart = dp(7) })
             visibility = if (prefs.getBoolean(KEY_DETAIL, false)) View.VISIBLE else View.GONE
         }
 
@@ -238,18 +238,18 @@ class FpsOverlay(
         val mainRow = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(stripe, LinearLayout.LayoutParams(dp(3), dp(28)).apply { marginEnd = dp(8) })
+            addView(stripe, LinearLayout.LayoutParams(dp(2), dp(16)).apply { marginEnd = dp(6) })
             addView(left)
-            addView(graph, LinearLayout.LayoutParams(dp(104), dp(28)).apply { marginStart = dp(10); marginEnd = dp(10) })
-            addView(divider, LinearLayout.LayoutParams(dp(1), dp(24)).apply { marginEnd = dp(2) })
-            addView(cpu, LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = dp(10) })
-            addView(gpu, LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = dp(12) })
-            addView(pwr, LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = dp(12) })
+            addView(graph, LinearLayout.LayoutParams(dp(84), dp(16)).apply { marginStart = dp(7); marginEnd = dp(7) })
+            addView(divider, LinearLayout.LayoutParams(dp(1), dp(12)).apply { marginEnd = dp(1) })
+            addView(cpu, LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = dp(7) })
+            addView(gpu, LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = dp(9) })
+            addView(pwr, LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = dp(9) })
         }
         val box = LinearLayout(appContext).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(7), dp(14), dp(7))
-            background = OverlayStyle.hudBackground(dp(7).toFloat(), dp(1), opacityPercent)
+            setPadding(dp(9), dp(3), dp(9), dp(3))
+            background = OverlayStyle.hudBackground(dp(6).toFloat(), dp(1), opacityPercent)
             addView(mainRow, ViewGroup.LayoutParams(wrap, wrap))
             addView(controls, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, wrap))
         }
@@ -328,10 +328,10 @@ class FpsOverlay(
         text = label
         gravity = Gravity.CENTER
         setTextColor(OverlayStyle.TEXT)
-        textSize = 13f * scale
+        textSize = 10f * scale
         typeface = Typeface.DEFAULT_BOLD
         includeFontPadding = false
-        background = OverlayStyle.buttonBackground(dp(3).toFloat())
+        background = OverlayStyle.buttonBackground(dp(8).toFloat())
         contentDescription = if (delta > 0) "Perbesar overlay" else "Perkecil overlay"
         setOnClickListener { onResize(delta) }
     }

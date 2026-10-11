@@ -73,137 +73,100 @@ fun GamingScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing
         ) {
-            items(1) {
-                androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                HighlightPanel {
+            item(key = "mode") {
+                com.kynox.gaming.ui.components.SummaryCard {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.gaming_mode_title),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text(stringResource(R.string.gaming_mode_title), style = MaterialTheme.typography.labelMedium)
                             Text(
                                 if (state.active) stringResource(R.string.common_active) else stringResource(R.string.gaming_mode_state_off),
-                                style = MaterialTheme.typography.displaySmall,
-                                color = if (state.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.displaySmall
                             )
                         }
+                        com.kynox.gaming.ui.components.InfoButton(stringResource(R.string.gaming_mode_desc), title = stringResource(R.string.gaming_mode_title))
                         Switch(
                             checked = state.active,
                             enabled = !state.busy,
                             onCheckedChange = { viewModel.setGameMode(it) }
                         )
                     }
-                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 10.dp))
-                    Text(
-                        stringResource(R.string.gaming_mode_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
+            }
 
+            item(key = "autodetect") {
                 SectionCard(
                     title = stringResource(R.string.gaming_autodetect_title),
-                    trailing = { if (state.autoDetect && state.rootAvailable) StatusPill(text = stringResource(R.string.common_active), color = StatusGood) }
+                    info = stringResource(R.string.gaming_autodetect_desc)
                 ) {
-                    Text(
-                        stringResource(R.string.gaming_autodetect_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    com.kynox.gaming.ui.components.KynoxSwitchRow(
+                        title = stringResource(R.string.gaming_autodetect_switch),
+                        checked = state.autoDetect,
+                        enabled = state.rootAvailable,
+                        onCheckedChange = { checked ->
+                            viewModel.setAutoDetect(checked)
+                            if (!checked) stopDetection(context)
+                        }
                     )
-                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 10.dp))
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(stringResource(R.string.gaming_autodetect_switch), style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = state.autoDetect,
-                            enabled = state.rootAvailable,
-                            onCheckedChange = { checked ->
-                                viewModel.setAutoDetect(checked)
-                                if (!checked) stopDetection(context)
-                            }
-                        )
-                    }
+                    // Peringatan tetap terlihat langsung di kartu.
                     if (!state.rootAvailable) {
-                        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
                         Text(
                             stringResource(R.string.gaming_autodetect_needs_root),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = com.kynox.gaming.ui.theme.StatusWarning,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     } else if (state.managedCount == 0) {
-                        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
                         Text(
                             stringResource(R.string.gaming_autodetect_no_games),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
                 }
+            }
 
+            item(key = "overlay") {
                 SectionCard(
                     title = stringResource(R.string.gaming_overlay_title),
-                    trailing = { if (state.overlayActive) StatusPill(text = stringResource(R.string.common_active), color = StatusGood) }
+                    info = stringResource(R.string.gaming_overlay_desc)
                 ) {
-                    Text(
-                        stringResource(R.string.gaming_overlay_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 10.dp))
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(stringResource(R.string.gaming_overlay_switch), style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = state.overlayActive,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    viewModel.prepareOverlayPermission { granted ->
-                                        if (granted) {
-                                            startQuickOverlay(context)
-                                            viewModel.setOverlayActive(true)
-                                        }
+                    com.kynox.gaming.ui.components.KynoxSwitchRow(
+                        title = stringResource(R.string.gaming_overlay_switch),
+                        checked = state.overlayActive,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                viewModel.prepareOverlayPermission { granted ->
+                                    if (granted) {
+                                        startQuickOverlay(context)
+                                        viewModel.setOverlayActive(true)
                                     }
-                                } else {
-                                    stopQuickOverlay(context)
-                                    viewModel.setOverlayActive(false)
                                 }
+                            } else {
+                                stopQuickOverlay(context)
+                                viewModel.setOverlayActive(false)
                             }
-                        )
-                    }
+                        }
+                    )
                     if (!state.overlayGranted) {
-                        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
                         Text(
                             stringResource(R.string.gaming_overlay_needs_permission),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = com.kynox.gaming.ui.theme.StatusWarning,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
                 }
+            }
 
-                SectionCard(title = stringResource(R.string.gaming_library_section_title)) {
-                    Text(
-                        stringResource(R.string.gaming_library_section_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 10.dp))
-                    KOutlinedButton(onClick = onNavigateToLibrary) {
+            item(key = "library") {
+                SectionCard(title = stringResource(R.string.gaming_library_section_title), info = stringResource(R.string.gaming_library_section_desc)) {
+                    KOutlinedButton(onClick = onNavigateToLibrary, modifier = Modifier.padding(vertical = 12.dp)) {
                         Text(stringResource(R.string.btn_manage_games))
                     }
-                }
-
-
                 }
             }
         }

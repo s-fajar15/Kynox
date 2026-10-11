@@ -200,7 +200,7 @@ class ChargingMonitorService : Service() {
 
         val builder = NotificationCompat.Builder(this, NotificationChannels.CHARGING_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
-            .setColor(0xFF2F6FED.toInt())
+            .setColor(0xFF00696A.toInt())
             .setContentTitle(title)
             .setContentText(compactText)
             .setSubText(source?.let { "Kynox \u00B7 $it" } ?: "Kynox")

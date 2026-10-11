@@ -36,9 +36,13 @@ fun GpuScreen(container: AppContainer, onBack: () -> Unit) {
     val unknown = stringResource(R.string.common_unknown)
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.gpu_manager_title), onBack = onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        androidx.compose.foundation.lazy.LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing
+        ) {
             val gpu = state
-            if (gpu?.supported == true) {
+            if (gpu?.supported == true) item(key = "readout") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     HighlightPanel(Modifier.weight(1f)) {
                         Readout(gpu.currentFreqKhz?.let { gpuFreqMhz(it).toString() } ?: unknown, if (gpu.currentFreqKhz != null) "MHz" else "", stringResource(R.string.field_current_freq))
@@ -48,9 +52,10 @@ fun GpuScreen(container: AppContainer, onBack: () -> Unit) {
                     }
                 }
             }
-            SectionCard(title = stringResource(R.string.dashboard_gpu)) {
+            item(key = "details") { SectionCard(title = stringResource(R.string.dashboard_gpu)) {
                 if (gpu?.supported != true) {
-                    Text(gpu?.reason ?: stringResource(R.string.common_loading), style = MaterialTheme.typography.bodyMedium)
+                    if (gpu != null) com.kynox.gaming.ui.components.UnsupportedNotice(gpu.reason)
+                    else Text(stringResource(R.string.common_loading), style = MaterialTheme.typography.bodyMedium)
                 } else {
                     MetricRow(stringResource(R.string.field_min_freq), gpu.minFreqKhz?.let { "${gpuFreqMhz(it)} MHz" } ?: unknown)
                     MetricRow(stringResource(R.string.field_max_freq), gpu.maxFreqKhz?.let { "${gpuFreqMhz(it)} MHz" } ?: unknown)
@@ -67,7 +72,7 @@ fun GpuScreen(container: AppContainer, onBack: () -> Unit) {
                         MetricRow(stringResource(R.string.field_governor), gpu.governor ?: unknown)
                     }
                 }
-            }
+            } }
         }
     }
 }

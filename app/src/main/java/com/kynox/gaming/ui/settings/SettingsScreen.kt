@@ -56,6 +56,9 @@ import com.kynox.gaming.ui.components.KButton
 import com.kynox.gaming.ui.components.KynoxTopBar
 import com.kynox.gaming.ui.theme.KynoxAccentDark
 import com.kynox.gaming.ui.theme.KynoxIcons
+import com.kynox.gaming.data.settings.isOverlayMetricOn
+import com.kynox.gaming.domain.model.OverlayMetric
+import com.kynox.gaming.domain.model.parseOverlayOrder
 import com.kynox.gaming.ui.theme.StatusGood
 import com.kynox.gaming.ui.theme.kynoxColors
 import com.kynox.gaming.data.settings.OVERLAY_SCALE_MIN
@@ -75,6 +78,7 @@ import androidx.compose.foundation.layout.heightIn
 @Composable
 fun SettingsScreen(
     container: AppContainer,
+    onBack: () -> Unit = {},
     onNavigateAbout: () -> Unit = {},
     onNavigateGaming: () -> Unit = {},
     onNavigateGameLibrary: () -> Unit = {},
@@ -88,11 +92,11 @@ fun SettingsScreen(
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     var search by remember { mutableStateOf("") }
 
-    Scaffold(topBar = { KynoxTopBar(title = "Pengaturan") }) { padding ->
+    Scaffold(topBar = { com.kynox.gaming.ui.components.DetailTopBar(title = "Pengaturan", onBack = onBack) }) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 104.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 SearchBar(search, onSearch = { search = it })
@@ -208,14 +212,14 @@ fun SettingsScreen(
                     }
                     if (settings.historyEnabled) {
                         Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 12.dp)) {
-                            Text("Selang simpan (makin jarang makin hemat baterai)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Selang simpan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             ChoiceRow(
                                 options = HISTORY_INTERVAL_OPTIONS_SEC.map { it to (if (it >= 60) "${it / 60} mnt" else "$it dtk") },
                                 selected = settings.historyIntervalSec,
                                 onSelect = { viewModel.setHistory(true, it, settings.historyRetentionHours) }
                             )
                             Spacer(Modifier.height(10.dp))
-                            Text("Lama disimpan (maks. 3 MB, yang tertua dibuang lebih dulu)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Lama disimpan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             ChoiceRow(
                                 options = HISTORY_RETENTION_OPTIONS_HOURS.map { it to "$it jam" },
                                 selected = settings.historyRetentionHours,
@@ -231,11 +235,18 @@ fun SettingsScreen(
                 }
             }
             item {
-                SettingGroup("Overlay", KynoxIcons.Profiles, matches(search, "overlay fps cpu gpu suhu")) {
-                    ToggleSettingRow("FPS", "Tampilkan FPS di atas aplikasi", settings.overlayShowFps, KynoxIcons.Monitor) { viewModel.setOverlayMetric(it, settings.overlayShowCpu, settings.overlayShowGpu, settings.overlayShowBatteryTemp) }
-                    ToggleSettingRow("CPU", "Tampilkan penggunaan CPU", settings.overlayShowCpu, KynoxIcons.Cpu) { viewModel.setOverlayMetric(settings.overlayShowFps, it, settings.overlayShowGpu, settings.overlayShowBatteryTemp) }
-                    ToggleSettingRow("GPU", "Tampilkan penggunaan GPU", settings.overlayShowGpu, KynoxIcons.Gpu) { viewModel.setOverlayMetric(settings.overlayShowFps, settings.overlayShowCpu, it, settings.overlayShowBatteryTemp) }
-                    ToggleSettingRow("Suhu baterai", "Tampilkan suhu baterai", settings.overlayShowBatteryTemp, KynoxIcons.Thermal) { viewModel.setOverlayMetric(settings.overlayShowFps, settings.overlayShowCpu, settings.overlayShowGpu, it) }
+                SettingGroup("Overlay", KynoxIcons.Profiles, matches(search, "overlay fps cpu gpu suhu ram daya urutan metrik"), info = "Pilih metrik yang tampil di overlay cepat dan atur urutannya dengan panah. Perubahan langsung berlaku. Di overlay, ketuk untuk memunculkan tombol \u2212 / + (overlay sesi) atau pakai tombol \u2212 / + di kepalanya (overlay cepat).") {
+                    val overlayOrder = parseOverlayOrder(settings.overlayOrder)
+                    overlayOrder.forEachIndexed { index, metric ->
+                        OverlayMetricRow(
+                            metric = metric,
+                            checked = settings.isOverlayMetricOn(metric),
+                            canMoveUp = index > 0,
+                            canMoveDown = index < overlayOrder.lastIndex,
+                            onToggle = { viewModel.setOverlayMetricEnabled(metric, it) },
+                            onMove = { viewModel.moveOverlayMetric(metric, it) }
+                        )
+                    }
                     var scaleDraft by remember(settings.overlayScalePercent) { mutableFloatStateOf(settings.overlayScalePercent.toFloat()) }
                     var opacityDraft by remember(settings.overlayOpacityPercent) { mutableFloatStateOf(settings.overlayOpacityPercent.toFloat()) }
                     Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 12.dp)) {
@@ -255,7 +266,6 @@ fun SettingsScreen(
                             valueRange = OVERLAY_OPACITY_MIN.toFloat()..100f,
                             steps = 7
                         )
-                        Text("Di overlay, ketuk untuk memunculkan tombol \u2212 / + (overlay sesi) atau pakai tombol \u2212 / + di kepalanya (overlay cepat).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     SimpleSettingRow("Reset posisi overlay", "Kembalikan overlay ke pojok kiri-atas (potret dan landscape) saat ditampilkan berikutnya", KynoxIcons.Refresh) {
                         com.kynox.gaming.service.resetOverlayPositions(context)
@@ -330,12 +340,12 @@ private fun <T> ChoiceRow(options: List<Pair<T, String>>, selected: T, onSelect:
         options.forEach { (value, label) ->
             val active = value == selected
             Box(
-                Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+                Modifier.weight(1f).heightIn(min = 48.dp).clip(com.kynox.gaming.ui.theme.KynoxShapes.pill)
                     .background(if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.kynoxColors.surfaceSunken)
                     .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(value) }),
                 contentAlignment = Alignment.Center
             ) {
-                Text(label, style = MaterialTheme.typography.labelMedium, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(label, style = MaterialTheme.typography.labelMedium, color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -352,7 +362,7 @@ private fun SearchBar(value: String, onSearch: (String) -> Unit) {
         singleLine = true,
         leadingIcon = { androidx.compose.material3.Icon(KynoxIcons.Search, null, modifier = Modifier.size(20.dp)) },
         placeholder = { Text("Cari pengaturan…") },
-        shape = RoundedCornerShape(18.dp),
+        shape = com.kynox.gaming.ui.theme.KynoxShapes.pill,
         colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -362,15 +372,18 @@ private fun SearchBar(value: String, onSearch: (String) -> Unit) {
 }
 
 @Composable
-private fun SettingGroup(title: String, icon: ImageVector, visible: Boolean, content: @Composable () -> Unit) {
+private fun SettingGroup(title: String, icon: ImageVector, visible: Boolean, info: String? = null, content: @Composable () -> Unit) {
     if (!visible) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            if (info != null) com.kynox.gaming.ui.components.InfoButton(info, title = title)
+        }
         ListCard { content() }
     }
 }
@@ -385,6 +398,39 @@ private fun ToggleSettingRow(title: String, description: String, checked: Boolea
     KynoxListRow(title, description, icon, trailing = { Switch(checked = checked, onCheckedChange = onChange) })
 }
 
+private fun overlayMetricInfo(metric: OverlayMetric): Triple<String, String, ImageVector> = when (metric) {
+    OverlayMetric.FPS -> Triple("FPS", "Frame per detik (ada grafiknya)", KynoxIcons.Monitor)
+    OverlayMetric.CPU -> Triple("CPU", "Penggunaan CPU", KynoxIcons.Cpu)
+    OverlayMetric.GPU -> Triple("GPU", "Penggunaan GPU", KynoxIcons.Gpu)
+    OverlayMetric.CPU_TEMP -> Triple("Suhu CPU", "Ditampilkan sebagai TEMP", KynoxIcons.Thermal)
+    OverlayMetric.RAM -> Triple("RAM", "Persentase RAM terpakai", KynoxIcons.Ram)
+    OverlayMetric.POWER -> Triple("Daya baterai", "Watt, ditampilkan sebagai PWR", KynoxIcons.Charging)
+    OverlayMetric.BATTERY_TEMP -> Triple("Suhu baterai", "Ditampilkan sebagai BAT", KynoxIcons.Battery)
+}
+
+@Composable
+private fun OverlayMetricRow(
+    metric: OverlayMetric,
+    checked: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onMove: (Int) -> Unit
+) {
+    val (title, description, icon) = overlayMetricInfo(metric)
+    KynoxListRow(title, description, icon, trailing = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton(onClick = { onMove(-1) }, enabled = canMoveUp, modifier = Modifier.size(48.dp)) {
+                Icon(KynoxIcons.MoveUp, contentDescription = "Naikkan $title")
+            }
+            androidx.compose.material3.IconButton(onClick = { onMove(1) }, enabled = canMoveDown, modifier = Modifier.size(48.dp)) {
+                Icon(KynoxIcons.MoveDown, contentDescription = "Turunkan $title")
+            }
+            Switch(checked = checked, onCheckedChange = onToggle)
+        }
+    })
+}
+
 @Composable
 private fun PermissionRow(title: String, granted: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(enabled = !granted, onClick = onClick).rowDivider().padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -395,9 +441,9 @@ private fun PermissionRow(title: String, granted: Boolean, onClick: () -> Unit) 
 
 @Composable
 private fun CompactInfo(title: String, description: String, onAction: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primaryContainer).padding(14.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-        Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp, bottom = 8.dp))
+    Column(Modifier.fillMaxWidth().clip(com.kynox.gaming.ui.theme.KynoxShapes.section).background(MaterialTheme.colorScheme.primaryContainer).padding(16.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(top = 3.dp, bottom = 8.dp))
         KButton(onClick = onAction) { Text("Keluar dari mode aman") }
     }
 }

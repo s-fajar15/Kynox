@@ -36,7 +36,7 @@ private fun rememberAppIcon(packageName: String): ImageBitmap? {
 @Composable
 fun AppIconImage(packageName: String, size: Dp, modifier: Modifier = Modifier) {
     val icon = rememberAppIcon(packageName)
-    val shape = RoundedCornerShape(size / 8)
+    val shape = RoundedCornerShape(size / 4)
     if (icon != null) {
         Image(
             bitmap = icon,

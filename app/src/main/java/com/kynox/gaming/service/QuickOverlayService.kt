@@ -11,6 +11,8 @@ import com.kynox.gaming.KynoxApplication
 import com.kynox.gaming.MainActivity
 import com.kynox.gaming.R
 import com.kynox.gaming.data.gaming.FpsMeter
+import com.kynox.gaming.data.settings.enabledOverlayMetrics
+import com.kynox.gaming.domain.model.OverlayMetric
 import com.kynox.gaming.domain.model.OverlaySettings
 import com.kynox.gaming.domain.model.QuickOverlayMetrics
 import kotlinx.coroutines.CoroutineScope
@@ -61,18 +63,13 @@ class QuickOverlayService : Service() {
                     }
                 }
                 job = scope.launch {
-                    val settings = container.settingsRepository.settingsFlow.first()
-                    val overlaySettings = OverlaySettings(
-                        showFps = settings.overlayShowFps,
-                        showCpu = settings.overlayShowCpu,
-                        showGpu = settings.overlayShowGpu,
-                        showBatteryTemp = settings.overlayShowBatteryTemp
-                    )
                     val fpsMeter = FpsMeter(container.rootExecutor, allowIdle = true)
                     var lastForeground: String? = null
                     _isActive.value = true
                     while (isActive) {
-                        val fps = if (overlaySettings.showFps) {
+                        // Dibaca ulang tiap detik agar perubahan metrik/urutan di Pengaturan langsung terlihat.
+                        val overlaySettings = OverlaySettings(container.settingsRepository.settingsFlow.first().enabledOverlayMetrics())
+                        val fps = if (overlaySettings.has(OverlayMetric.FPS)) {
                             val pkg = container.foregroundAppReader.read() ?: lastForeground
                             if (pkg != null) {
                                 lastForeground = pkg
@@ -80,14 +77,21 @@ class QuickOverlayService : Service() {
                             } else null
                         } else null
 
-                        val cpuUsage = if (overlaySettings.showCpu) {
+                        val cpuUsage = if (overlaySettings.has(OverlayMetric.CPU)) {
                             container.cpuRepository.readSnapshot().overallUsagePercent
                         } else null
 
-                        val gpu = if (overlaySettings.showGpu) container.gpuRepository.readState() else null
+                        val gpu = if (overlaySettings.has(OverlayMetric.GPU)) container.gpuRepository.readState() else null
 
-                        val batteryTemp = if (overlaySettings.showBatteryTemp) {
-                            container.batteryRepository.readInfo().temperatureCelsius
+                        val needBattery = overlaySettings.has(OverlayMetric.BATTERY_TEMP) || overlaySettings.has(OverlayMetric.POWER)
+                        val battery = if (needBattery) container.batteryRepository.readInfo() else null
+
+                        val cpuTemp = if (overlaySettings.has(OverlayMetric.CPU_TEMP)) {
+                            container.thermalRepository.findTemperatureFor(listOf("cpu", "soc", "cpuss", "apc", "cpu0", "tsens"))
+                        } else null
+
+                        val ram = if (overlaySettings.has(OverlayMetric.RAM)) {
+                            container.deviceInfoRepository.readRamUsage().usedPercent
                         } else null
 
                         val metrics = QuickOverlayMetrics(
@@ -95,7 +99,10 @@ class QuickOverlayService : Service() {
                             cpuUsagePercent = cpuUsage,
                             gpuUsagePercent = gpu?.utilizationPercent,
                             gpuFreqRaw = gpu?.currentFreqKhz,
-                            batteryTempCelsius = batteryTemp
+                            batteryTempCelsius = if (overlaySettings.has(OverlayMetric.BATTERY_TEMP)) battery?.temperatureCelsius else null,
+                            cpuTempCelsius = cpuTemp,
+                            ramPercent = ram,
+                            powerWatts = if (overlaySettings.has(OverlayMetric.POWER)) battery?.powerWatts else null
                         )
                         if (metricsOverlay.canShow()) metricsOverlay.show()
                         metricsOverlay.update(metrics, overlaySettings)
@@ -152,7 +159,7 @@ class QuickOverlayService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.OVERLAY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
-            .setColor(0xFF2F6FED.toInt())
+            .setColor(0xFF00696A.toInt())
             .setContentTitle(getString(R.string.notif_overlay_title))
             .setContentText(getString(R.string.notif_overlay_text))
             .setOngoing(true)

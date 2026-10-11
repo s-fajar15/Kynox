@@ -10,6 +10,7 @@ import com.kynox.gaming.data.logs.LogRepository
 import com.kynox.gaming.domain.model.LogEntry
 import com.kynox.gaming.service.ChargingMonitorService
 import com.kynox.gaming.service.MonitorService
+import com.kynox.gaming.service.RefreshRateService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -60,6 +61,12 @@ class ProfileBootReceiver : BroadcastReceiver() {
                 }
                 if (settings.monitorEnabled) {
                     MonitorService.start(appContext)
+                }
+
+                // Refresh rate per app tidak menulis sysfs saat boot, jadi aman dan
+                // tidak ikut aturan Safe Mode / Apply on Boot.
+                if (container.refreshRateRepository.isEnabled()) {
+                    RefreshRateService.start(appContext)
                 }
 
                 if (settings.safeModeActive) {

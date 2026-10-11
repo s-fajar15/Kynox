@@ -92,8 +92,6 @@ fun PermissionPrompt(onDismiss: () -> Unit) {
             Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            KMark(markSize = 52.dp)
-            Spacer(Modifier.height(8.dp))
             Text("Kynox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Text(
@@ -137,7 +135,7 @@ private fun PermissionItem(
 ) {
     Row(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(KynoxShapes.section)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .then(if (granted) Modifier else Modifier.clickable(onClick = onClick))
             .padding(horizontal = 12.dp, vertical = 11.dp),
@@ -149,6 +147,6 @@ private fun PermissionItem(
             Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             Text("($reason)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (granted) Icon(KynoxIcons.CheckOk, null, tint = StatusGood, modifier = Modifier.size(22.dp))
+        if (granted) Icon(KynoxIcons.CheckOk, "Sudah diizinkan", tint = StatusGood, modifier = Modifier.size(22.dp))
     }
 }

@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -112,13 +112,19 @@ fun QuickPanelScreen(
     val canWriteSettings = remember(tick) { try { Settings.System.canWrite(context) } catch (_: Throwable) { false } }
     var brightness by remember(tick) { mutableFloatStateOf(readBrightness(context)) }
 
-    val darkOn = settings?.themeMode != ThemeMode.LIGHT
+    // Mode "Sistem" dianggap gelap/terang mengikuti tema sistem, supaya status di sini sama dengan yang terlihat.
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val darkOn = when (settings?.themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        else -> systemDark
+    }
     val performanceOn = profile == ProfileType.PERFORMANCE || profile == ProfileType.GAMING
 
     Scaffold(topBar = { DetailTopBar(title = "Panel Cepat", onBack = onBack) }) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
@@ -137,9 +143,9 @@ fun QuickPanelScreen(
                         )
                     }
                     Box(
-                        Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                        Modifier.size(48.dp).clip(KynoxShapes.circle).background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
-                    ) { Icon(KynoxIcons.PlayArrow, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    ) { Icon(KynoxIcons.PlayArrow, contentDescription = "Buka profil performa", tint = MaterialTheme.colorScheme.onSurface) }
                 }
             }
             item {
@@ -220,8 +226,8 @@ fun QuickPanelScreen(
                         )
                     }
                     Icon(
-                        KynoxIcons.Settings, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp).clip(CircleShape).clickable {
+                        KynoxIcons.Settings, "Pengaturan layar", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp).clip(KynoxShapes.circle).clickable {
                             context.startActivitySafely(Intent(Settings.ACTION_DISPLAY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         }
                     )

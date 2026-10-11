@@ -131,7 +131,7 @@ fun BackupScreen(container: AppContainer, onBack: () -> Unit) {
         ) {
             SectionCard("Simpan cadangan") {
                 Text(
-                    "Menyimpan pengaturan Kynox, aturan Automation, daftar game beserta profilnya, profil kustom, dan refresh rate per aplikasi ke satu berkas JSON.",
+                    "Menyimpan pengaturan Kynox, aturan Automation, daftar aplikasi pantauan beserta profilnya, profil kustom, dan refresh rate per aplikasi ke satu berkas JSON.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(10.dp))
@@ -156,7 +156,7 @@ fun BackupScreen(container: AppContainer, onBack: () -> Unit) {
             SectionCard("Yang tidak ikut") {
                 Text(
                     "Terapkan saat boot, mode aman, batas pengisian, notifikasi pengisian, dan monitor selalu aktif tidak ikut dipulihkan karena menyalakan service atau memengaruhi proses boot. " +
-                        "Status perangkat (profil asli, Game Mode, sesi Automation) juga tidak dicadangkan.",
+                        "Status perangkat (profil asli, Mode performa, sesi Automation) juga tidak dicadangkan.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

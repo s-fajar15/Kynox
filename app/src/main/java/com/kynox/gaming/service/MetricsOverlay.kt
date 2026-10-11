@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.kynox.gaming.core.utils.Logger
 import com.kynox.gaming.core.utils.gpuFreqMhz
+import com.kynox.gaming.domain.model.OverlayMetric
 import com.kynox.gaming.domain.model.OverlaySettings
 import com.kynox.gaming.domain.model.QuickOverlayMetrics
 
@@ -99,22 +100,18 @@ class MetricsOverlay(
 
     private data class Tile(val label: String, val value: String)
 
-    private fun currentTiles(): List<Tile> {
-        val tiles = mutableListOf<Tile>()
-        if (settings.showFps) tiles.add(Tile("FPS", latest.fps?.let { String.format("%.0f", it) } ?: "--"))
-        if (settings.showCpu) tiles.add(Tile("CPU", latest.cpuUsagePercent?.let { String.format("%.0f%%", it) } ?: "--"))
-        if (settings.showGpu) {
-            tiles.add(
-                Tile(
-                    "GPU",
-                    latest.gpuUsagePercent?.let { String.format("%.0f%%", it) }
-                        ?: latest.gpuFreqRaw?.let { "${gpuFreqMhz(it)}MHz" }
-                        ?: "--"
-                )
-            )
+    private fun currentTiles(): List<Tile> = settings.metrics.map { metric ->
+        val value = when (metric) {
+            OverlayMetric.FPS -> latest.fps?.let { String.format("%.0f", it) }
+            OverlayMetric.CPU -> latest.cpuUsagePercent?.let { String.format("%.0f%%", it) }
+            OverlayMetric.GPU -> latest.gpuUsagePercent?.let { String.format("%.0f%%", it) }
+                ?: latest.gpuFreqRaw?.let { "${gpuFreqMhz(it)}MHz" }
+            OverlayMetric.CPU_TEMP -> latest.cpuTempCelsius?.let { String.format("%.0f\u00B0C", it) }
+            OverlayMetric.RAM -> latest.ramPercent?.let { String.format("%.0f%%", it) }
+            OverlayMetric.POWER -> latest.powerWatts?.let { String.format("%.1fW", Math.abs(it)) }
+            OverlayMetric.BATTERY_TEMP -> latest.batteryTempCelsius?.let { String.format("%.0f\u00B0C", it) }
         }
-        if (settings.showBatteryTemp) tiles.add(Tile("BAT", latest.batteryTempCelsius?.let { String.format("%.0f\u00B0C", it) } ?: "--"))
-        return tiles
+        Tile(metric.label, value ?: "--")
     }
 
     private fun render() {
@@ -127,7 +124,7 @@ class MetricsOverlay(
         val fpsColor = fpsStatusColor(fps, peakFps)
         tiles.forEachIndexed { index, tile ->
             val color = if (tile.label == "FPS") fpsColor else OverlayStyle.TEXT
-            tileViews.getOrNull(index)?.text = columnText(tile.label, tile.value, color)
+            tileViews.getOrNull(index)?.text = inlineText(tile.label, tile.value, color)
         }
         graphView?.setData(history.snapshot(), fpsColor)
     }
@@ -142,20 +139,18 @@ class MetricsOverlay(
         // Satu kolom per metrik (label kecil di atas, nilai di bawah); grafik FPS menempel setelah kolom FPS.
         tiles.forEachIndexed { index, tile ->
             val column = TextView(appContext).apply {
-                textSize = 12.5f * scaleNow
-                typeface = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
+                textSize = 11f * scaleNow
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 includeFontPadding = false
-                setLineSpacing(0f, 1.05f)
                 setTextColor(OverlayStyle.TEXT)
-                minWidth = dp(30)
             }
             host.addView(column, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                if (index > 0) marginStart = dp(12)
+                if (index > 0) marginStart = dp(9)
             })
             views.add(column)
             if (tile.label == "FPS") {
                 val spark = SparklineView(appContext)
-                host.addView(spark, LinearLayout.LayoutParams(dp(96), dp(26)).apply { marginStart = dp(8) })
+                host.addView(spark, LinearLayout.LayoutParams(dp(80), dp(14)).apply { marginStart = dp(6) })
                 graph = spark
             }
         }
@@ -188,14 +183,14 @@ class MetricsOverlay(
             gravity = Gravity.CENTER_VERTICAL
         }
         val stop = FrameLayout(appContext).apply {
-            background = OverlayStyle.stopBackground(dp(3).toFloat())
+            background = OverlayStyle.stopBackground(dp(8).toFloat())
             val square = View(appContext).apply {
                 background = GradientDrawable().apply {
                     cornerRadius = dp(1).toFloat()
                     setColor(Color.WHITE)
                 }
             }
-            addView(square, FrameLayout.LayoutParams(dp(7), dp(7), Gravity.CENTER))
+            addView(square, FrameLayout.LayoutParams(dp(6), dp(6), Gravity.CENTER))
             setOnClickListener { onStop() }
         }
         val accentBar = View(appContext).apply { setBackgroundColor(OverlayStyle.ACCENT) }
@@ -204,14 +199,13 @@ class MetricsOverlay(
         val row = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(7), dp(12), dp(7))
-            background = OverlayStyle.hudBackground(dp(7).toFloat(), dp(1), opacityPercent)
-            addView(accentBar, LinearLayout.LayoutParams(dp(3), dp(26)).apply { marginEnd = dp(8) })
+            setPadding(dp(9), dp(3), dp(7), dp(3))
+            background = OverlayStyle.hudBackground(dp(6).toFloat(), dp(1), opacityPercent)
             addView(host)
-            addView(divider, LinearLayout.LayoutParams(dp(1), dp(24)).apply { marginStart = dp(12); marginEnd = dp(10) })
-            addView(sizeButton("\u2212", -OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(5) })
-            addView(sizeButton("+", OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(7) })
-            addView(stop, LinearLayout.LayoutParams(dp(20), dp(20)))
+            addView(divider, LinearLayout.LayoutParams(dp(1), dp(12)).apply { marginStart = dp(8); marginEnd = dp(6) })
+            addView(sizeButton("\u2212", -OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(15), dp(15)).apply { marginEnd = dp(4) })
+            addView(sizeButton("+", OVERLAY_RESIZE_STEP_PERCENT, ::dp), LinearLayout.LayoutParams(dp(15), dp(15)).apply { marginEnd = dp(5) })
+            addView(stop, LinearLayout.LayoutParams(dp(15), dp(15)))
         }
 
         row.setOnTouchListener(object : View.OnTouchListener {
@@ -272,10 +266,10 @@ class MetricsOverlay(
         text = label
         gravity = Gravity.CENTER
         setTextColor(OverlayStyle.TEXT)
-        textSize = 12f * scale
+        textSize = 10f * scale
         typeface = Typeface.DEFAULT_BOLD
         includeFontPadding = false
-        background = OverlayStyle.buttonBackground(dp(3).toFloat())
+        background = OverlayStyle.buttonBackground(dp(8).toFloat())
         contentDescription = if (delta > 0) "Perbesar overlay" else "Perkecil overlay"
         setOnClickListener { onResize(delta) }
     }

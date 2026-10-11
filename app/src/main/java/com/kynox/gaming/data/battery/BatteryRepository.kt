@@ -11,6 +11,7 @@ import com.kynox.gaming.data.root.RootRepository
 import com.kynox.gaming.domain.model.BatteryInfo
 import com.kynox.gaming.domain.model.ChargeLimitState
 import com.kynox.gaming.domain.model.ChargerInfo
+import com.kynox.gaming.domain.model.FastChargeVerdict
 import com.kynox.gaming.domain.model.FastChargingState
 import com.kynox.gaming.domain.model.LogEntry
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,11 @@ import java.io.File
 private const val BACKUP_KEY = "fast_charging"
 private const val CHARGE_LIMIT_BACKUP_KEY = "charge_limit_pause"
 private const val SCRIPT_NAME = "kynox_fast_charge_loop.sh"
-private const val DAEMON_MATCH = "kynox_fast_charge_loop.sh"
+// Pola regex dengan kurung siku: teks pola ini sendiri (di baris perintah
+// shell pembungkus) TIDAK cocok dengan polanya, jadi pgrep/pkill tidak
+// menemukan atau membunuh shell root milik Kynox sendiri.
+private const val DAEMON_MATCH = "'kynox_fast_charge_loo[p]\\.sh'"
+private const val LAUNCH_LOG_NAME = "kynox_fast_charge_launch.log"
 
 const val FAST_CHARGE_DEFAULT_MA = 5050
 const val FAST_CHARGE_MIN_MA = 2000
@@ -175,7 +180,8 @@ class BatteryRepository(
     // ---- Charge limit / battery protection -----------------------------
 
     private suspend fun chargePausePaths(): List<Triple<String, String, String>> {
-        val supplies = capabilityEngine.powerSupplyNames()
+        // Supply "battery" lebih dulu: di sanalah node pause yang benar pada kebanyakan perangkat.
+        val supplies = capabilityEngine.powerSupplyNames().sortedBy { if (it.equals("battery", ignoreCase = true)) 0 else 1 }
         return supplies.flatMap { supply ->
             chargePauseNodes.map { (node, pause, resume) -> Triple("/sys/class/power_supply/$supply/$node", pause, resume) }
         }
@@ -185,13 +191,13 @@ class BatteryRepository(
     suspend fun chargeLimitState(): ChargeLimitState = withContext(Dispatchers.IO) {
         val rootAvailable = rootRepository.current().isAvailable
         if (!rootAvailable) {
-            return@withContext ChargeLimitState(false, null, "Requires root access")
+            return@withContext ChargeLimitState(false, null, "Butuh akses root.")
         }
         val candidates = chargePausePaths()
         val values = SysfsAccess.readMultipleWithRoot(candidates.map { it.first }, rootAvailable, rootExecutor)
         val found = candidates.firstOrNull { values[it.first] != null }
         if (found == null) {
-            ChargeLimitState(false, null, "No charge-pause interface found on this kernel")
+            ChargeLimitState(false, null, "Kernel tidak mendukung fitur ini: tidak ada node untuk menghentikan pengisian.")
         } else {
             ChargeLimitState(true, found.first, "Ready")
         }
@@ -202,7 +208,7 @@ class BatteryRepository(
         val candidates = chargePausePaths()
         val values = SysfsAccess.readMultipleWithRoot(candidates.map { it.first }, true, rootExecutor)
         val (path, pauseValue, _) = candidates.firstOrNull { values[it.first] != null }
-            ?: return@withContext AppResult.Failure("No charge-pause interface found on this kernel")
+            ?: return@withContext AppResult.Failure("Kernel tidak mendukung fitur ini: tidak ada node untuk menghentikan pengisian.")
 
         if (!backupStore.hasBackup(CHARGE_LIMIT_BACKUP_KEY)) {
             backupStore.save(CHARGE_LIMIT_BACKUP_KEY, mapOf(path to values[path]))
@@ -212,7 +218,7 @@ class BatteryRepository(
             LogEntry(System.currentTimeMillis(), "PAUSE_CHARGING", path, values[path], pauseValue,
                 if (result.isSuccess) "SUCCESS" else "FAILED", if (result.isSuccess) null else result.stderr)
         )
-        if (result.isSuccess) AppResult.Success(Unit) else AppResult.Failure(result.stderr.ifBlank { "Write failed" })
+        if (result.isSuccess) AppResult.Success(Unit) else AppResult.Failure(result.stderr.ifBlank { "Gagal menulis ke node." })
     }
 
     /** Writes the resume value back. Safe to call even if charging was never paused. */
@@ -228,7 +234,7 @@ class BatteryRepository(
                 if (result.isSuccess) "SUCCESS" else "FAILED", if (result.isSuccess) null else result.stderr)
         )
         backupStore.clear(CHARGE_LIMIT_BACKUP_KEY)
-        if (result.isSuccess) AppResult.Success(Unit) else AppResult.Failure(result.stderr.ifBlank { "Write failed" })
+        if (result.isSuccess) AppResult.Success(Unit) else AppResult.Failure(result.stderr.ifBlank { "Gagal menulis ke node." })
     }
 
     /** All current-limit + toggle candidate paths, built once (cheap, no I/O). */
@@ -249,7 +255,7 @@ class BatteryRepository(
     suspend fun fastChargingState(): FastChargingState = withContext(Dispatchers.IO) {
         val rootAvailable = rootRepository.current().isAvailable
         if (!rootAvailable) {
-            return@withContext FastChargingState(false, false, false, FAST_CHARGE_DEFAULT_MA, null, null, 0, "Requires root access")
+            return@withContext FastChargingState(false, false, false, FAST_CHARGE_DEFAULT_MA, null, null, 0, "Butuh akses root.")
         }
 
         // One batched root read covers every candidate path this screen
@@ -266,7 +272,7 @@ class BatteryRepository(
         val nodes = currentCandidates.filter { values[it] != null }
         val toggleFound = toggleNodes.any { values[it.first] != null }
         if (nodes.isEmpty() && !toggleFound) {
-            return@withContext FastChargingState(false, false, false, FAST_CHARGE_DEFAULT_MA, null, null, 0, "No writable charge-current interface found on this kernel")
+            return@withContext FastChargingState(false, false, false, FAST_CHARGE_DEFAULT_MA, null, null, 0, "Kernel tidak mendukung fitur ini: tidak ada node batas arus pengisian yang ditemukan.")
         }
 
         val running = isDaemonRunning()
@@ -339,7 +345,13 @@ class BatteryRepository(
             return@withContext AppResult.Failure("Could not write script: ${t.message}")
         }
 
-        val launch = rootExecutor.execute("nohup sh '${scriptFile.absolutePath}' > /dev/null 2>&1 &", timeoutMs = 4000L)
+        val launchLog = File(context.filesDir, LAUNCH_LOG_NAME).absolutePath
+        val script0 = scriptFile.absolutePath
+        val launch = rootExecutor.execute(
+            "if command -v setsid >/dev/null 2>&1; then setsid nohup sh '$script0' >'$launchLog' 2>&1 </dev/null & " +
+                "else nohup sh '$script0' >'$launchLog' 2>&1 </dev/null & fi",
+            timeoutMs = 4000L
+        )
         logRepository.append(
             LogEntry(System.currentTimeMillis(), "START_FAST_CHARGE_DAEMON", scriptFile.absolutePath, null,
                 "target=${clamped}mA advanced=$includeAdvanced",
@@ -352,6 +364,52 @@ class BatteryRepository(
         marker["_advanced"] = if (includeAdvanced) "1" else "0"
         backupStore.save(BACKUP_KEY, marker)
         AppResult.Success(Unit)
+    }
+
+    /**
+     * Memeriksa hasil nyata setelah start: apakah proses benar-benar hidup,
+     * berapa node batas arus yang kini bernilai sama dengan target, dan arus
+     * pengisian yang terukur. Tidak menulis apa pun.
+     */
+    suspend fun verifyFastCharging(targetMa: Int): FastChargeVerdict = withContext(Dispatchers.IO) {
+        kotlinx.coroutines.delay(2500)
+        val running = isDaemonRunning()
+        val supplies = capabilityEngine.powerSupplyNames()
+        val currentCandidates = supplies.flatMap { supply ->
+            currentNodeNames.map { node -> "/sys/class/power_supply/$supply/$node" }
+        } + extraCurrentPaths
+        // Dibaca per kelompok kecil dan dicek hasil perintahnya: satu perintah raksasa bisa
+        // kena timeout, dan itu dulu tampak seperti "kernel tidak punya node".
+        val values = mutableMapOf<String, String?>()
+        var readOk = true
+        currentCandidates.chunked(12).forEach { chunk ->
+            val marker = "@@KYNOX_V@@"
+            val cmd = chunk.joinToString(" ; ") { p -> "echo '$marker$p' ; cat '$p' 2>/dev/null" } + " ; true"
+            val res = rootExecutor.execute(cmd, timeoutMs = 6000L)
+            if (!res.isSuccess) { readOk = false; return@forEach }
+            res.stdout.split(marker).drop(1).forEach { part ->
+                val nl = part.indexOf('\n')
+                val path = (if (nl == -1) part else part.substring(0, nl)).trim()
+                val v = if (nl == -1) null else part.substring(nl + 1).trim().ifBlank { null }
+                if (path.isNotEmpty()) values[path] = v
+            }
+        }
+        val present = currentCandidates.filter { values[it] != null }
+        val sample = present.take(4).joinToString(", ") { p -> p.removePrefix("/sys/class/power_supply/") + "=" + values[p] }.ifBlank { null }
+        val targetUa = (targetMa.coerceIn(FAST_CHARGE_MIN_MA, FAST_CHARGE_MAX_MA) * 1000).toString()
+        val accepted = present.count { values[it]?.trim() == targetUa }
+        val info = try { infoReader.read() } catch (_: Throwable) { null }
+        val measured = info?.currentMicroAmps?.let { kotlin.math.abs(it) / 1000 }
+        val err = if (running) null else try {
+            File(context.filesDir, LAUNCH_LOG_NAME).readText().trim().take(160).ifBlank { null }
+        } catch (_: Throwable) { null }
+        val verdict = FastChargeVerdict(running, present.size, accepted, measured, info?.isPlugged == true, err, readOk, sample)
+        logRepository.append(
+            LogEntry(System.currentTimeMillis(), "VERIFY_FAST_CHARGE", "node batas arus", null,
+                "proses=${if (running) "jalan" else "TIDAK jalan"}, node=${accepted}/${present.size} bernilai ${targetMa}mA, baca=${if (readOk) "ok" else "GAGAL"}, arus=${measured ?: "?"}mA${sample?.let { " [$it]" } ?: ""}",
+                if (running && accepted > 0) "SUCCESS" else "FAILED", err)
+        )
+        verdict
     }
 
     private suspend fun stopDaemon(): AppResult<Unit> = withContext(Dispatchers.IO) {

@@ -68,8 +68,8 @@ fun AboutScreen(container: AppContainer, onBack: () -> Unit) {
     Scaffold(topBar = { DetailTopBar(title = "Tentang Kynox", onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -99,7 +99,7 @@ fun AboutScreen(container: AppContainer, onBack: () -> Unit) {
                     )
                     KynoxListRow(
                         "Status root",
-                        rootStatus?.let { if (it.isAvailable) it.provider.name else stringResource(R.string.about_root_unavailable) }
+                        rootStatus?.let { if (it.isAvailable) it.provider.name.lowercase().replaceFirstChar { c -> c.uppercase() } else stringResource(R.string.about_root_unavailable) }
                             ?: stringResource(R.string.common_loading),
                         KynoxIcons.Root,
                         subtitleColor = MaterialTheme.colorScheme.primary,

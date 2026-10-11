@@ -1,5 +1,8 @@
 package com.kynox.gaming.data.settings
 
+import com.kynox.gaming.domain.model.parseOverlayOrder
+import com.kynox.gaming.domain.model.serializeOverlayOrder
+
 /**
  * Bagian pengaturan yang aman dibawa lewat cadangan. Sengaja tidak ikut:
  * "Terapkan saat boot", mode aman, batas pengisian, notifikasi pengisian dan
@@ -20,6 +23,10 @@ object PortableSettings {
         "overlay_show_cpu" to s.overlayShowCpu,
         "overlay_show_gpu" to s.overlayShowGpu,
         "overlay_show_battery_temp" to s.overlayShowBatteryTemp,
+        "overlay_show_cpu_temp" to s.overlayShowCpuTemp,
+        "overlay_show_ram" to s.overlayShowRam,
+        "overlay_show_power" to s.overlayShowPower,
+        "overlay_order" to s.overlayOrder,
         "overlay_scale_percent" to s.overlayScalePercent,
         "overlay_opacity_percent" to s.overlayOpacityPercent,
         "notify_thermal" to s.notifyThermal,
@@ -33,7 +40,7 @@ object PortableSettings {
 
     private val booleanKeys = setOf(
         "require_confirmation", "logging_enabled", "overlay_show_fps", "overlay_show_cpu",
-        "overlay_show_gpu", "overlay_show_battery_temp", "notify_thermal", "notify_profile_applied", "history_enabled"
+        "overlay_show_gpu", "overlay_show_battery_temp", "overlay_show_cpu_temp", "overlay_show_ram", "overlay_show_power", "notify_thermal", "notify_profile_applied", "history_enabled"
     )
 
     private val intRanges: Map<String, IntRange> = mapOf(
@@ -54,6 +61,7 @@ object PortableSettings {
         for ((key, value) in raw) {
             when {
                 key in booleanKeys -> if (value is Boolean) out[key] = value
+                key == "overlay_order" -> (value as? String)?.let { out[key] = serializeOverlayOrder(parseOverlayOrder(it)) }
                 key == "theme_mode" -> (value as? String)?.takeIf { v -> ThemeMode.values().any { it.name == v } }?.let { out[key] = it }
                 key == "temperature_unit" -> (value as? String)?.takeIf { v -> TemperatureUnit.values().any { it.name == v } }?.let { out[key] = it }
                 key == "thermal_warn_threshold_c" -> asInt(value)?.let { out[key] = if (it <= 0) THERMAL_WARN_AUTO else it.coerceIn(35, 80) }

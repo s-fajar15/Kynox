@@ -1,6 +1,8 @@
 package com.kynox.gaming.ui.cleaner
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -96,31 +98,41 @@ fun CleanerScreen(container: AppContainer, onBack: () -> Unit) {
     Scaffold(topBar = { DetailTopBar(title = "Bersihkan RAM & Cache", onBack = onBack) }) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+            verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing
         ) {
             item {
-                Column(Modifier.fillMaxWidth().kynoxCard(KynoxShapes.hero).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                com.kynox.gaming.ui.components.SummaryCard {
                     val snapshot = memory
-                    KynoxGauge(progress = (snapshot?.usedPercent ?: 0f) / 100f, modifier = Modifier.size(190.dp), strokeWidth = 13.dp) {
-                        if (busy) {
-                            CircularProgressIndicator(Modifier.size(36.dp), strokeWidth = 3.dp)
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    snapshot?.let { "%.0f%%".format(it.usedPercent) } ?: "--",
-                                    style = MaterialTheme.typography.displaySmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text("RAM terpakai", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                    val onHero = MaterialTheme.colorScheme.onPrimaryContainer
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("RAM terpakai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                        if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = onHero)
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.padding(top = 4.dp)) {
+                        Text(
+                            snapshot?.let { "%.0f".format(it.usedPercent) } ?: "--",
+                            style = MaterialTheme.typography.displayLarge,
+                            maxLines = 1,
+                            modifier = Modifier.alignByBaseline()
+                        )
+                        Text(
+                            "%",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 4.dp).alignByBaseline()
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    com.kynox.gaming.ui.components.KLinearProgress(
+                        (snapshot?.usedPercent ?: 0f) / 100f,
+                        trackColor = onHero.copy(alpha = 0.18f),
+                        fillColor = onHero
+                    )
+                    Spacer(Modifier.height(10.dp))
                     Text(
                         snapshot?.let { "${formatBytes(it.usedBytes)} dari ${formatBytes(it.totalBytes)} · tersedia ${formatBytes(it.availableBytes)}" } ?: "Memuat…",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
@@ -227,13 +239,19 @@ private fun ramMessage(mode: CleanMode): String = when (mode) {
 
 @Composable
 private fun ModeOption(title: String, description: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = KynoxShapes.section
+    val container = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    val titleColor = when {
+        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+        selected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
     Row(
         Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface, shape)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, shape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(14.dp),
+            .clip(shape)
+            .background(container)
+            .selectable(selected = selected, enabled = enabled, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick)
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -241,11 +259,15 @@ private fun ModeOption(title: String, description: String, selected: Boolean, en
                 title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                color = titleColor
             )
-            Text(description, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        if (selected) Text("Dipilih", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        if (selected) Text("Dipilih", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 

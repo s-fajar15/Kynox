@@ -119,8 +119,8 @@ fun LogsScreen(container: AppContainer, onBack: () -> Unit) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = com.kynox.gaming.ui.components.KynoxListPadding,
+                    verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing
                 ) {
                     // Indeks ikut di kunci: dua entri dengan timestamp+target sama tidak boleh menabrak (crash LazyColumn).
                     itemsIndexed(visible, key = { index, entry -> "${entry.timestamp}|${entry.target}|$index" }) { _, entry ->
@@ -144,14 +144,14 @@ private fun LogRow(entry: LogEntry, formatter: SimpleDateFormat) {
             )
         }
     ) {
-        Text(entry.target, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(entry.target, style = MaterialTheme.typography.bodySmall.copy(fontFamily = com.kynox.gaming.ui.theme.KynoxData), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(formatter.format(Date(entry.timestamp)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (entry.previousValue != null || entry.newValue != null) {
             Text(
                 stringResource(R.string.log_value_arrow, entry.previousValue ?: "?", entry.newValue ?: "?"),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = com.kynox.gaming.ui.theme.KynoxData)
             )
         }
-        entry.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = StatusDanger) }
+        entry.error?.let { Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFamily = com.kynox.gaming.ui.theme.KynoxData), color = StatusDanger) }
     }
 }

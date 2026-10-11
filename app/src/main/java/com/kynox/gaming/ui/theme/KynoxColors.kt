@@ -5,38 +5,47 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-/** Colour roles Material's ColorScheme has no slot for. Read through [kynoxColors]. */
+/** Peran warna yang tidak punya slot di ColorScheme Material. Dibaca lewat [kynoxColors]. */
 data class KynoxColorRoles(
+    /** Permukaan kedua (surface2): trek progres, kotak ikon, chip. */
     val surfaceSunken: Color,
     val surfaceRaised: Color,
     val outlineStrong: Color,
+    /** Teks sekunder (teks2). */
     val onSurfaceFaint: Color,
     val accentContainer: Color,
-    /** Second chart series (GPU), distinguishable from the accent (CPU). */
+    /** Seri kedua grafik (GPU), dibedakan dari aksen (CPU). */
     val seriesSecondary: Color,
-    /** Faint grid line colour for charts. */
+    /** Garis pemisah halus dan grid. */
     val grid: Color,
-    /** The bottom nav's own colour -- always dark, on both themes (per mockup). */
-    val navBar: Color
+    /** Latar bottom bar (= surface). */
+    val navBar: Color,
+    /** Warna status, terpisah dari aksen dan lolos kontras AA terhadap permukaannya. */
+    val good: Color,
+    val warning: Color,
+    val danger: Color
 )
 
 val LocalKynoxColors = compositionLocalOf {
     KynoxColorRoles(
-        surfaceSunken = KynoxSurfaceSunkenLight,
-        surfaceRaised = KynoxSurfaceLight,
-        outlineStrong = KynoxOutlineStrongLight,
-        onSurfaceFaint = KynoxOnSurfaceFaintLight,
-        accentContainer = KynoxAccentContainerLight,
-        seriesSecondary = KynoxSeriesGpuLight,
-        grid = KynoxOutlineLight,
-        navBar = KynoxNavBarDark
+        surfaceSunken = KynoxSurface2Dark,
+        surfaceRaised = KynoxSurfaceDark,
+        outlineStrong = KynoxOutlineStrongDark,
+        onSurfaceFaint = KynoxOnSurfaceMutedDark,
+        accentContainer = KynoxPrimaryContainerDark,
+        seriesSecondary = KynoxSeriesGpuDark,
+        grid = KynoxOutlineDark,
+        navBar = KynoxSurfaceDark,
+        good = KynoxGoodDark,
+        warning = KynoxWarningDark,
+        danger = KynoxDangerDark
     )
 }
 
 val MaterialTheme.kynoxColors: KynoxColorRoles
     @Composable get() = LocalKynoxColors.current
 
-/** Single source of the load / temperature bands so every screen colours a value the same way. */
+/** Satu sumber ambang beban / suhu supaya semua layar mewarnai nilai dengan cara yang sama. */
 object KynoxStatusBands {
     const val LOAD_WARN = 75f
     const val LOAD_CRIT = 90f

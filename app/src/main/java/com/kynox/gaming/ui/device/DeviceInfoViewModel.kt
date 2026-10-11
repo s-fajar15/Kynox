@@ -14,6 +14,10 @@ class DeviceInfoViewModel(private val repository: DeviceInfoRepository) : ViewMo
     val info: StateFlow<DeviceInfo?> = _info.asStateFlow()
 
     init {
-        viewModelScope.launch { _info.value = repository.load() }
+        // Tampilkan hasil sebelumnya seketika (bila ada), lalu segarkan di latar belakang.
+        _info.value = repository.cached() ?: runCatching { repository.basic() }.getOrNull()
+        viewModelScope.launch {
+            runCatching { repository.load() }.getOrNull()?.let { _info.value = it }
+        }
     }
 }

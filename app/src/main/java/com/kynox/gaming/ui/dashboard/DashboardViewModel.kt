@@ -13,11 +13,14 @@ import com.kynox.gaming.data.thermal.ThermalRepository
 import com.kynox.gaming.domain.model.BatteryInfo
 import com.kynox.gaming.domain.model.CpuSnapshot
 import com.kynox.gaming.domain.model.GpuState
+import com.kynox.gaming.domain.model.DeviceInfo
 import com.kynox.gaming.domain.model.RamUsage
+import com.kynox.gaming.domain.model.StorageInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -35,7 +38,12 @@ data class DashboardUiState(
     val rootStatus: RootStatus? = null,
     val cpuUsageHistory: List<Float> = emptyList(),
     val ramUsageHistory: List<Float> = emptyList(),
-    val batteryCurrentHistory: List<Float> = emptyList()
+    val batteryCurrentHistory: List<Float> = emptyList(),
+    val device: DeviceInfo? = null,
+    val storage: StorageInfo? = null,
+    val swapUsedBytes: Long = 0L,
+    val swapTotalBytes: Long = 0L,
+    val uptimeMs: Long = 0L
 )
 
 class DashboardViewModel(
@@ -52,6 +60,12 @@ class DashboardViewModel(
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
+        // Info perangkat dimuat terpisah: layar tidak perlu menunggunya untuk tampil.
+        _uiState.update { it.copy(device = deviceInfoRepository.cached() ?: runCatching { deviceInfoRepository.basic() }.getOrNull()) }
+        viewModelScope.launch {
+            val loaded = runCatching { deviceInfoRepository.load() }.getOrNull()
+            if (loaded != null) _uiState.update { it.copy(device = loaded) }
+        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(rootStatus = rootRepository.current())
             val intervalMs = settingsRepository.settingsFlow.first().refreshIntervalMs
@@ -81,6 +95,8 @@ class DashboardViewModel(
         )
         val cpuTemp = cpuGpuTemps.first
         val gpuTemp = gpu.temperatureCelsius ?: cpuGpuTemps.second
+        val storage = deviceInfoRepository.readStorage()
+        val swap = deviceInfoRepository.readSwap()
         val thermalActive = if (checkThermalState) {
             !thermalRepository.disableState().active
         } else {
@@ -96,6 +112,10 @@ class DashboardViewModel(
             cpuTempCelsius = cpuTemp,
             gpuTempCelsius = gpuTemp,
             thermalEngineActive = thermalActive,
+            storage = storage,
+            swapUsedBytes = swap.first,
+            swapTotalBytes = swap.second,
+            uptimeMs = android.os.SystemClock.elapsedRealtime(),
             cpuUsageHistory = appendHistory(_uiState.value.cpuUsageHistory, cpu.overallUsagePercent ?: 0f),
             ramUsageHistory = appendHistory(_uiState.value.ramUsageHistory, ram.usedPercent),
             batteryCurrentHistory = appendHistory(

@@ -29,14 +29,14 @@ fun RootScreen(container: AppContainer, onBack: () -> Unit) {
     val unknown = stringResource(R.string.common_unknown)
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.root_manager_title), onBack = onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionCard(title = stringResource(R.string.root_status_title)) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = com.kynox.gaming.ui.components.KynoxListPadding, verticalArrangement = com.kynox.gaming.ui.components.KynoxCardSpacing) {
+            item { SectionCard(title = stringResource(R.string.root_status_title)) {
                 MetricRow(stringResource(R.string.field_available), if (status?.isAvailable == true) stringResource(R.string.value_yes) else stringResource(R.string.value_no))
-                MetricRow(stringResource(R.string.field_provider), status?.provider?.name ?: "…")
+                MetricRow(stringResource(R.string.field_provider), status?.provider?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "--")
                 MetricRow(stringResource(R.string.field_su_version), status?.suVersion ?: unknown)
-                MetricRow(stringResource(R.string.field_detail), status?.detail ?: "…")
-            }
-            KButton(onClick = { viewModel.recheck() }) { Text(stringResource(R.string.btn_recheck_root)) }
+                MetricRow(stringResource(R.string.field_detail), status?.detail ?: "--")
+            } }
+            item { KButton(onClick = { viewModel.recheck() }) { Text(stringResource(R.string.btn_recheck_root)) } }
         }
     }
 }

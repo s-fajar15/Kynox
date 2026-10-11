@@ -192,7 +192,7 @@ class MonitorService : Service() {
         )
         return NotificationCompat.Builder(this, NotificationChannels.MONITOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_kynox)
-            .setColor(0xFF2F6FED.toInt())
+            .setColor(0xFF00696A.toInt())
             .setContentTitle(getString(R.string.notif_monitor_title))
             .setContentText(getString(R.string.notif_monitor_text))
             .setOngoing(false)

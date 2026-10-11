@@ -1,5 +1,6 @@
 package com.kynox.gaming.ui.process
 
+import com.kynox.gaming.ui.components.groupedItems
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -69,79 +70,71 @@ fun ProcessesScreen(container: AppContainer, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = { DetailTopBar(title = stringResource(R.string.processes_title), onBack = onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = state.query,
-                    onValueChange = viewModel::setQuery,
-                    label = { Text(stringResource(R.string.processes_search_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(12.dp))
-                val cpuLabel = stringResource(R.string.processes_sort_cpu)
-                val memoryLabel = stringResource(R.string.processes_sort_memory)
-                val nameLabel = stringResource(R.string.processes_sort_name)
-                val labelsBySort = remember(cpuLabel, memoryLabel, nameLabel) {
-                    mapOf(ProcessSort.CPU to cpuLabel, ProcessSort.MEMORY to memoryLabel, ProcessSort.NAME to nameLabel)
-                }
-                val sortsByLabel = remember(cpuLabel, memoryLabel, nameLabel) {
-                    mapOf(cpuLabel to ProcessSort.CPU, memoryLabel to ProcessSort.MEMORY, nameLabel to ProcessSort.NAME)
-                }
-                DropdownSelector(
-                    label = stringResource(R.string.processes_sort_label),
-                    selected = labelsBySort[state.sort] ?: cpuLabel,
-                    options = listOf(cpuLabel, memoryLabel, nameLabel),
-                    enabled = true,
-                    onSelected = { label -> sortsByLabel[label]?.let(viewModel::setSort) }
-                )
-            }
-
-            state.killResult?.let { result ->
-                val ok = result.success
-                val label = if (ok) stringResource(R.string.processes_kill_ok, result.name)
-                else stringResource(R.string.processes_kill_failed, result.name)
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (ok) StatusGood else StatusWarning,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
+        val cpuLabel = stringResource(R.string.processes_sort_cpu)
+        val memoryLabel = stringResource(R.string.processes_sort_memory)
+        val nameLabel = stringResource(R.string.processes_sort_name)
+        val labelsBySort = remember(cpuLabel, memoryLabel, nameLabel) {
+            mapOf(ProcessSort.CPU to cpuLabel, ProcessSort.MEMORY to memoryLabel, ProcessSort.NAME to nameLabel)
+        }
+        val sortsByLabel = remember(cpuLabel, memoryLabel, nameLabel) {
+            mapOf(cpuLabel to ProcessSort.CPU, memoryLabel to ProcessSort.MEMORY, nameLabel to ProcessSort.NAME)
+        }
+        androidx.compose.foundation.lazy.LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
+        ) {
+            item(key = "search") {
+                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    com.kynox.gaming.ui.components.KynoxSearchField(
+                        value = state.query,
+                        onValueChange = viewModel::setQuery,
+                        placeholder = stringResource(R.string.processes_search_hint),
                         modifier = Modifier.weight(1f)
                     )
-                    KTextButton(onClick = viewModel::dismissKillResult) { Text(stringResource(R.string.dialog_cancel)) }
+                    Spacer(Modifier.width(12.dp))
+                    DropdownSelector(
+                        label = stringResource(R.string.processes_sort_label),
+                        selected = labelsBySort[state.sort] ?: cpuLabel,
+                        options = listOf(cpuLabel, memoryLabel, nameLabel),
+                        enabled = true,
+                        onSelected = { label -> sortsByLabel[label]?.let(viewModel::setSort) }
+                    )
                 }
             }
-
+            state.killResult?.let { result ->
+                item(key = "result") {
+                    val ok = result.success
+                    val label = if (ok) stringResource(R.string.processes_kill_ok, result.name)
+                    else stringResource(R.string.processes_kill_failed, result.name)
+                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (ok) StatusGood else StatusWarning,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        KTextButton(onClick = viewModel::dismissKillResult) { Text(stringResource(R.string.dialog_cancel)) }
+                    }
+                }
+            }
             if (state.loading) {
-                Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) {
-                    KLoadingIndicator()
+                item(key = "loading") {
+                    Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { KLoadingIndicator() }
                 }
             } else if (state.visible.isEmpty()) {
-                Text(
-                    stringResource(R.string.processes_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(24.dp)
-                )
+                item(key = "empty") {
+                    Text(
+                        stringResource(R.string.processes_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(24.dp)
+                    )
+                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    items(state.visible, key = { it.pid }) { process ->
-                        Column {
-                            ProcessRow(process, killing = state.killingPid == process.pid, onKill = { pendingKill = process })
-                            KDivider()
-                        }
-                    }
+                groupedItems(state.visible, key = { it.pid }) { process ->
+                    ProcessRow(process, killing = state.killingPid == process.pid, onKill = { pendingKill = process })
                 }
             }
         }

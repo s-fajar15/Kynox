@@ -278,7 +278,7 @@ class ThermalRepository(
         }
         val (tripPaths, params) = controlPaths()
         if (tripPaths.isEmpty() && params.isEmpty()) {
-            return@withContext ThermalDisableState(supported = false, active = false, reason = "No compatible thermal control interface found on this kernel")
+            return@withContext ThermalDisableState(supported = false, active = false, reason = "Kernel tidak mendukung fitur ini: tidak ada antarmuka kontrol termal yang cocok.")
         }
 
         val values = SysfsAccess.readMultipleWithRoot(tripPaths + params, rootAvailable, rootExecutor)
