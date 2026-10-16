@@ -93,7 +93,3 @@ Satu-satunya akses jaringan di kode adalah unduhan daftar hosts. Tidak ada pusta
 ## Teknologi
 
 Kotlin dan Jetpack Compose (Material 3), `minSdk` 26, `targetSdk` 34.
-
-## Pengembang
-
-s.fajar
