@@ -1,2 +1,0 @@
--keep class com.kynox.gaming.domain.model.** { *; }
--keepattributes *Annotation*
