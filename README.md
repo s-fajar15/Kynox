@@ -4,6 +4,12 @@ Aplikasi Android untuk memantau dan mengatur performa perangkat: suhu, beban CPU
 
 Pemantauan berjalan tanpa root. Hampir semua fitur yang mengubah pengaturan sistem membutuhkan root (Magisk, KernelSU, atau APatch). Fitur yang tidak didukung kernel atau perangkat ditandai "Tidak didukung" di layarnya, tidak dipalsukan.
 
+## Tampilan
+
+<p align="center">
+  <img src="assets/promo-landscape.png" alt="Tampilan aplikasi Kynox" width="100%">
+</p>
+
 ## Fitur
 
 ### Pemantauan
